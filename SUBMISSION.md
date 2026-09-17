@@ -5,7 +5,7 @@
 - Live demo: add Vercel URL after deployment
 - API: add Render URL after deployment
 - Demo video: add video URL after recording
-- Repository: add GitHub URL after push
+- Repository: https://github.com/jordiparis165/circuitstock-agent
 
 ## One-Liner
 

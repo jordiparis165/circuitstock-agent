@@ -4,6 +4,8 @@ Hackathon MVP for BNB Hack: Tokenized Stocks Edition.
 
 CircuitStock monitors tokenized-stock prices on BSC against reference prices, detects spreads, and prepares simulated rebalance actions before any user-signed transaction.
 
+Repository: https://github.com/jordiparis165/circuitstock-agent
+
 ## Why this angle
 
 - Fits tokenized-stock primitives: bStocks, xStocks, and Ondo-style tokenized exposure.
