@@ -1,0 +1,27 @@
+services:
+  - type: web
+    name: circuitstock-agent-api
+    env: node
+    plan: free
+    buildCommand: npm install
+    startCommand: npm start
+    healthCheckPath: /api/health
+    envVars:
+      - key: BINANCE_WEB3_BASE_URL
+        value: https://web3.binance.com/build
+      - key: BINANCE_WEB3_QUOTE_PATH
+        value: /api/v1/dex/aggregator/quote
+      - key: BINANCE_WEB3_SWAP_PATH
+        value: /api/v1/dex/aggregator/swap
+      - key: BINANCE_WEB3_SIMULATE_PATH
+        value: /api/v1/dex/pre-transaction/simulate
+      - key: BINANCE_WEB3_RWA_TOKENS_PATH
+        value: /api/v1/dex/market/rwa/tokens
+      - key: BINANCE_WEB3_RWA_PRICE_PATH
+        value: /api/v1/dex/market/rwa/price
+      - key: BSC_RPC_URL
+        value: https://bsc-dataseed.binance.org
+      - key: BINANCE_WEB3_API_KEY
+        sync: false
+      - key: BINANCE_WEB3_API_SECRET
+        sync: false
