@@ -3,7 +3,7 @@
 ## Links
 
 - Live demo: https://circuitstock-agent.vercel.app
-- API: add Render URL after deployment
+- API: https://circuitstock-agent-api.onrender.com
 - Demo video: add video URL after recording
 - Repository: https://github.com/jordiparis165/circuitstock-agent
 

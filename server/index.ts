@@ -31,6 +31,17 @@ app.use(cors());
 app.use(express.json());
 app.use(morgan("dev"));
 
+app.get("/", (_req, res) => {
+  res.json({
+    ok: true,
+    service: "circuitstock-agent-api",
+    health: "/api/health",
+    evidence: "/api/evidence",
+    agent: "/api/agent/recommend/compact",
+    docs: "https://github.com/jordiparis165/circuitstock-agent"
+  });
+});
+
 type MarketQuote = {
   symbol: string;
   name: string;

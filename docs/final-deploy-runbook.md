@@ -7,7 +7,8 @@ Use this when the team is ready to publish the hackathon submission.
 - GitHub repo: `https://github.com/jordiparis165/circuitstock-agent`
 - Current visibility: private
 - Vercel frontend: `https://circuitstock-agent.vercel.app`
-- Vercel production env `VITE_API_BASE_URL` currently points to the intended Render slug: `https://circuitstock-agent-api.onrender.com`
+- Render API: `https://circuitstock-agent-api.onrender.com`
+- Vercel production env `VITE_API_BASE_URL` points to: `https://circuitstock-agent-api.onrender.com`
 - Local build: `npm run build`
 - API start command: `npm start`
 - Frontend output directory: `dist`
