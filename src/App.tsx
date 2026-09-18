@@ -137,6 +137,8 @@ type Evidence = {
   }>;
 };
 
+type ViewId = "monitor" | "wallet" | "agent" | "risk";
+
 const API_BASE = (import.meta.env.VITE_API_BASE_URL ?? "").replace(/\/$/, "");
 const currency = new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" });
 const compactUsd = new Intl.NumberFormat("en-US", { notation: "compact", maximumFractionDigits: 1 });
@@ -169,6 +171,7 @@ export function App() {
   const [tab, setTab] = useState(9);
   const [maxTradeUsd, setMaxTradeUsd] = useState(10);
   const [loading, setLoading] = useState(true);
+  const [activeView, setActiveView] = useState<ViewId>("monitor");
 
   async function refresh() {
     setLoading(true);
@@ -249,14 +252,22 @@ export function App() {
 
   async function signTransaction(label: "approval" | "swap", tx?: PreparedTx | null) {
     if (!window.ethereum || !tx) return;
+    const payload = JSON.stringify(tx, null, 2);
     try {
       const signature = await window.ethereum.request<string>({ method: "eth_signTransaction", params: [tx] });
       setSignatureResult(`${label} signature: ${signature}`);
     } catch (error) {
-      setSignatureResult(
+      try {
+        await navigator.clipboard?.writeText(payload);
+      } catch {
+        // Clipboard is optional; the payload is still displayed below.
+      }
+      const reason =
         error instanceof Error
-          ? `${label} signature unavailable: ${error.message}`
-          : `${label} signature unavailable. Wallet declined or does not support eth_signTransaction.`
+          ? error.message
+          : "Wallet declined or does not support eth_signTransaction.";
+      setSignatureResult(
+        `${label} raw signing is unavailable in this wallet: ${reason}\n\nNo broadcast was performed. The transaction payload was copied when clipboard access was available:\n${payload}`
       );
     }
   }
@@ -275,6 +286,12 @@ export function App() {
   }, [quotes]);
 
   const statusText = preview?.humanStatus ?? preview?.simulationSummary?.humanStatus ?? preview?.error ?? "Prepare an action to inspect execution.";
+  const navItems: Array<{ id: ViewId; label: string; icon: typeof Activity }> = [
+    { id: "monitor", label: "Monitor", icon: Activity },
+    { id: "wallet", label: "Wallet Skills", icon: WalletCards },
+    { id: "agent", label: "Agent Studio", icon: Cpu },
+    { id: "risk", label: "Risk Rules", icon: ShieldCheck }
+  ];
 
   return (
     <main className="shell">
@@ -287,10 +304,15 @@ export function App() {
           </div>
         </div>
         <nav>
-          <a className="active"><Activity size={18} /> Monitor</a>
-          <a><WalletCards size={18} /> Wallet Skills</a>
-          <a><Cpu size={18} /> Agent Studio</a>
-          <a><ShieldCheck size={18} /> Risk Rules</a>
+          {navItems.map((item) => {
+            const Icon = item.icon;
+            return (
+              <button key={item.id} className={activeView === item.id ? "active" : ""} onClick={() => setActiveView(item.id)}>
+                <Icon size={18} />
+                {item.label}
+              </button>
+            );
+          })}
         </nav>
       </aside>
 
@@ -339,6 +361,50 @@ export function App() {
             {walletAddress ? "Wallet connected" : "Connect wallet"}
           </button>
         </section>
+
+        {activeView !== "monitor" && (
+          <section className="viewPanel">
+            {activeView === "wallet" && (
+              <>
+                <div>
+                  <p className="eyebrow">Wallet Skills</p>
+                  <h2>Skill-ready actions</h2>
+                </div>
+                <div className="infoGrid">
+                  <div><strong>scan_tokenized_stock_spreads</strong><span>Calls `/api/agent/recommend/compact` with risk, platform, tabs and max trade size.</span></div>
+                  <div><strong>prepare_rebalance</strong><span>Calls `/api/execution/prepare` and returns quote, approval, gas, simulation and no-broadcast checklist.</span></div>
+                  <div><strong>Safety boundary</strong><span>The skill never broadcasts. The wallet or user must explicitly handle any final action.</span></div>
+                </div>
+              </>
+            )}
+            {activeView === "agent" && (
+              <>
+                <div>
+                  <p className="eyebrow">Agent Studio</p>
+                  <h2>Runtime integration shape</h2>
+                </div>
+                <div className="infoGrid">
+                  <div><strong>Compact payload</strong><span>Recommendation, reason, confidence, required user action and transaction preview.</span></div>
+                  <div><strong>Monitoring loop</strong><span>Schedule `/api/agent/recommend` and escalate only when spread, liquidity and risk rules pass.</span></div>
+                  <div><strong>Evidence trail</strong><span>`/api/evidence` shows Binance modules, endpoints, status and latency for judge review.</span></div>
+                </div>
+              </>
+            )}
+            {activeView === "risk" && (
+              <>
+                <div>
+                  <p className="eyebrow">Risk Rules</p>
+                  <h2>Execution guardrails</h2>
+                </div>
+                <div className="infoGrid">
+                  <div><strong>Small size</strong><span>Default trade size is $10 and capped by the max trade input.</span></div>
+                  <div><strong>Pre-flight checks</strong><span>Wallet balances, official approval payload, gas checks and simulation run before signing.</span></div>
+                  <div><strong>No broadcast</strong><span>Signing is optional. If raw signing is unsupported, CircuitStock displays and copies the payload.</span></div>
+                </div>
+              </>
+            )}
+          </section>
+        )}
 
         <section className="filters">
           <SlidersHorizontal size={18} />
@@ -502,11 +568,11 @@ export function App() {
               <div className="signGrid">
                 <button className="signButton" onClick={() => signTransaction("approval", preview?.approvalTx)} disabled={!preview?.approvalTx}>
                   <FileSignature size={18} />
-                  Sign approval only
+                  Sign/copy approval
                 </button>
                 <button className="signButton" onClick={() => signTransaction("swap", preview?.swapTx ?? preview?.evmTx)} disabled={!preview?.swapTx && !preview?.evmTx}>
                   <FileSignature size={18} />
-                  Sign swap only
+                  Sign/copy swap
                 </button>
               </div>
 

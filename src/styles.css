@@ -58,7 +58,7 @@ button {
 }
 
 .brand span,
-nav a {
+nav button {
   color: #bcc7bd;
   font-size: 0.9rem;
 }
@@ -68,15 +68,20 @@ nav {
   gap: 8px;
 }
 
-nav a {
+nav button {
   display: flex;
   align-items: center;
   gap: 10px;
+  width: 100%;
   padding: 12px;
+  border: 0;
   border-radius: 8px;
+  background: transparent;
+  cursor: pointer;
+  text-align: left;
 }
 
-nav a.active {
+nav button.active {
   color: #13231b;
   background: #f7f0c8;
 }
@@ -227,6 +232,41 @@ h2 {
 
 .walletBand button {
   padding: 0 14px;
+}
+
+.viewPanel {
+  display: grid;
+  gap: 14px;
+  margin-bottom: 20px;
+  padding: 18px;
+  border: 1px solid #d8d2c2;
+  border-radius: 8px;
+  background: #fffdf6;
+}
+
+.infoGrid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.infoGrid div {
+  min-height: 98px;
+  padding: 12px;
+  border: 1px solid #ebe5d5;
+  border-radius: 8px;
+  background: #fbf8ef;
+}
+
+.infoGrid strong,
+.infoGrid span {
+  display: block;
+}
+
+.infoGrid span {
+  margin-top: 6px;
+  color: #647069;
+  font-size: 0.9rem;
 }
 
 .filters {
@@ -608,7 +648,8 @@ h2 {
   .metrics,
   .workbench,
   .apiEvidence,
-  .opsPanel {
+  .opsPanel,
+  .infoGrid {
     grid-template-columns: 1fr;
   }
 
