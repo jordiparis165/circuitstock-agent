@@ -51,6 +51,7 @@ Status: working local product, private repo for now, ready for Render/Vercel dep
 - `docs/submission.md` and `SUBMISSION.md` - final submission notes.
 - `docs/team-onboarding.md` - teammate setup.
 - `docs/agent-studio-x402.md` - BNB Agent Studio, ERC-8004/ERC-8183, and x402 packaging plan.
+- `docs/final-deploy-runbook.md` - exact Render/Vercel/public repo submission steps.
 - `skills/circuitstock/SKILL.md` and `skills/circuitstock/skill.json` - Wallet Skill/agent shape.
 - `render.yaml` - Render API deployment config.
 - `vercel.json` - Vercel frontend config.
