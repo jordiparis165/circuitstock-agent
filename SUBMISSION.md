@@ -2,7 +2,7 @@
 
 ## Links
 
-- Live demo: add Vercel URL after deployment
+- Live demo: https://circuitstock-agent.vercel.app
 - API: add Render URL after deployment
 - Demo video: add video URL after recording
 - Repository: https://github.com/jordiparis165/circuitstock-agent

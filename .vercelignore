@@ -1,0 +1,6 @@
+render.yaml
+node_modules
+dist
+.env
+.env.local
+.git
