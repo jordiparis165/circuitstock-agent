@@ -4,7 +4,7 @@
 
 - Live demo: https://circuitstock-agent.vercel.app
 - API: https://circuitstock-agent-api.onrender.com
-- Demo video: add video URL after recording
+- Demo video: record from `docs/demo-script.md`
 - Repository: https://github.com/jordiparis165/circuitstock-agent
 
 ## One-Liner

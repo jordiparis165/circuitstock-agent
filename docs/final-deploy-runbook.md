@@ -59,6 +59,9 @@ Verify:
 curl https://YOUR_RENDER_URL/api/health
 curl https://YOUR_RENDER_URL/api/rwa/platforms
 curl "https://YOUR_RENDER_URL/api/rwa/search?q=TSLA"
+curl -X POST https://YOUR_RENDER_URL/api/agent/interpret \
+  -H "Content-Type: application/json" \
+  -d '{"prompt":"Quote only: buy $10 of TSLA tokenized stock","walletAddress":"0x000000000000000000000000000000000000dead"}'
 ```
 
 ## Step 2 - Vercel Frontend
