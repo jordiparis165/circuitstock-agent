@@ -42,6 +42,8 @@ http://localhost:5173
 - `POST /api/execution/prepare` returns quote, official approval check, approval transaction payload, swap payload, gas checks, wallet snapshot, research context, and simulation result.
 - `POST /api/agent/recommend/compact` returns the concise payload intended for Wallet Skills / Agent Studio.
 - `POST /api/agent/interpret` accepts plain-language stock-trading prompts and returns research or a no-broadcast execution preview.
+- `GET /api/b402/manifest` exposes the demo payment manifest for premium agent monitoring.
+- `POST /api/premium/signal` returns `402 Payment Required` unless the hackathon demo payment header is supplied.
 - No automatic broadcast exists in the app.
 - `POST /api/agent/recommend` exposes the same logic for agent runtimes.
 
@@ -88,6 +90,21 @@ Input:
 ```
 
 Output: parsed intent, RWA search/profile/market data, optional prepared execution, and a plain-language summary.
+
+### `premium_signal_demo`
+
+Input:
+
+```json
+{
+  "risk": "balanced",
+  "maxTradeUsd": 10,
+  "platforms": ["bstock"],
+  "tabs": [9]
+}
+```
+
+Output: b402/x402-compatible demo payment response. With header `x-demo-payment: paid`, returns premium monitoring summary and top opportunities. This is demo mode, not production settlement.
 
 ## Deployment
 

@@ -160,10 +160,12 @@ Invoke-RestMethod -Uri http://localhost:8787/api/agent/interpret -Method Post -C
 
 1. Open the dashboard and confirm `mode: live` via the opportunity scanner.
 2. Connect an injected wallet and switch to BNB Smart Chain.
-3. Click **Prepare execution** on an agent action.
-4. Review quote, official approval evidence, wallet checks, gas checks, research context, approval calldata, swap calldata, and simulation result.
-5. Open **Agent Studio** and run the prompt demo.
-6. Optionally try **Sign/copy approval** and **Sign/copy swap**. The app never broadcasts automatically.
+3. Use **First stock flow** to preview a small TSLA/NVDA/MSFT/SPY buy.
+4. Click **Prepare execution** on an agent action.
+5. Review quote, official approval evidence, wallet checks, gas checks, research context, approval calldata, swap calldata, and simulation result.
+6. Open **Agent Studio** and run the prompt demo.
+7. Inspect `GET /api/b402/manifest` and the demo `POST /api/premium/signal` route.
+8. Optionally try **Sign/copy approval** and **Sign/copy swap**. The app never broadcasts automatically.
 
 ## Local API
 
@@ -174,6 +176,8 @@ Invoke-RestMethod -Uri http://localhost:8787/api/agent/interpret -Method Post -C
 - `POST /api/agent/interpret` - plain-language tokenized stock prompt parser and quote/research flow.
 - `POST /api/execution/prepare` - quote, official approval, wallet snapshot, research, gas checks, swap build, simulation, and unsigned tx payloads.
 - `GET /api/evidence` - sanitized evidence of Binance modules, endpoints, status and latency.
+- `GET /api/b402/manifest` - demo payment manifest for premium agent monitoring.
+- `POST /api/premium/signal` - b402/x402-shaped `402 Payment Required` demo route; send `x-demo-payment: paid` for hackathon demo mode.
 - `GET /api/rwa/platforms`, `GET /api/rwa/search?q=TSLA` - platform discovery and ticker resolution.
 - `GET /api/research/:symbol` - candles, volatility, underlying profile and market context.
 - `GET /api/wallet/:address` - balance and portfolio checks.
@@ -199,6 +203,7 @@ Last verified locally:
 - `/api/health` returns configured API status without exposing secrets.
 - `/api/execution/prepare` returns quote, official approval, approval calldata, swap calldata, wallet check, gas check, research check, simulation summary, and `broadcasted: false`.
 - `/api/agent/recommend/compact` returns a compact recommendation payload for agent runtimes.
+- `/api/b402/manifest` and `/api/premium/signal` expose the demo payment-gated agent shape.
 - `/api/evidence` records recent Binance Web3 modules/endpoints with latency.
 
 ## Deploy
@@ -223,11 +228,10 @@ Create a Vercel project from this repo:
 - Output directory: `dist`
 - Environment variable: `VITE_API_BASE_URL=https://your-render-service.onrender.com`
 
-## Next build steps
+## Remaining submission steps
 
-1. Deploy the frontend/API pair to a public URL for judging.
-2. Record the demo video using `docs/demo-script.md`.
-3. Convert the documented skill shape into a published Wallet Skill or Agent Studio runtime if time allows.
-4. Add deployed URLs and video link to `SUBMISSION.md`.
-5. Make the GitHub repository public before submitting.
-6. Rotate Binance Web3 credentials after the hackathon.
+1. Record the demo video using `docs/demo-script.md`.
+2. Add the video link to `SUBMISSION.md`.
+3. Add fresh desktop/mobile screenshots if the UI changes.
+4. Keep the repo public for judging.
+5. Rotate Binance Web3 credentials after the hackathon or immediately if a secret was shared outside Render.

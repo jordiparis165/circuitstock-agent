@@ -51,6 +51,12 @@ Output:
 - simulation summary
 - no-broadcast checklist
 
+### premium_signal_demo
+
+Call `POST /api/premium/signal`.
+
+This is a b402/x402-compatible demo route for Agent Studio commerce packaging. It returns `402 Payment Required` unless the hackathon demo header `x-demo-payment: paid` is supplied. It never broadcasts and should only be used to show how a paid monitoring tool would wrap the same signal engine.
+
 ## Safety Rules
 
 - Never broadcast automatically.

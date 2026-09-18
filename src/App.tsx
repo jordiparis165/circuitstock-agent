@@ -187,6 +187,8 @@ export function App() {
   const [activeView, setActiveView] = useState<ViewId>("monitor");
   const [agentPrompt, setAgentPrompt] = useState("Quote only: buy $10 of TSLA tokenized stock");
   const [agentReply, setAgentReply] = useState<AgentInterpretation | null>(null);
+  const [firstStockSymbol, setFirstStockSymbol] = useState("TSLA");
+  const [firstStockAmount, setFirstStockAmount] = useState(10);
 
   async function refresh() {
     setLoading(true);
@@ -298,6 +300,19 @@ export function App() {
     getJson<Evidence>("/api/evidence").then(setEvidence).catch(() => undefined);
   }
 
+  async function prepareFirstStock(symbol = firstStockSymbol) {
+    const prompt = `Quote only: buy $${firstStockAmount} of ${symbol} tokenized stock`;
+    setAgentPrompt(prompt);
+    const data = await getJson<AgentInterpretation>("/api/agent/interpret", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ prompt, walletAddress })
+    });
+    setAgentReply(data);
+    if (data.execution) setPreview(data.execution);
+    getJson<Evidence>("/api/evidence").then(setEvidence).catch(() => undefined);
+  }
+
   useEffect(() => {
     refresh().then(() => runStrategy("balanced"));
   }, []);
@@ -388,6 +403,37 @@ export function App() {
           </button>
         </section>
 
+        <section className="firstStockPanel">
+          <div>
+            <p className="eyebrow">First stock flow</p>
+            <h2>Preview a first tokenized stock purchase</h2>
+            <span>Pick a familiar stock, quote a small USDC route, simulate it, then sign only if the wallet supports raw transaction signing.</span>
+          </div>
+          <div className="firstStockControls">
+            <label>
+              Amount
+              <input type="number" min={1} max={100} value={firstStockAmount} onChange={(event) => setFirstStockAmount(Number(event.target.value))} />
+            </label>
+            <select value={firstStockSymbol} onChange={(event) => setFirstStockSymbol(event.target.value)}>
+              <option value="TSLA">Tesla</option>
+              <option value="NVDA">Nvidia</option>
+              <option value="MSFT">Microsoft</option>
+              <option value="SPY">S&P 500 ETF</option>
+            </select>
+            <button onClick={() => prepareFirstStock()}>
+              <BadgeDollarSign size={18} />
+              Preview buy
+            </button>
+          </div>
+          <div className="quickStocks">
+            {["TSLA", "NVDA", "MSFT", "SPY"].map((symbol) => (
+              <button key={symbol} onClick={() => prepareFirstStock(symbol)}>
+                {symbol}
+              </button>
+            ))}
+          </div>
+        </section>
+
         {activeView !== "monitor" && (
           <section className="viewPanel">
             {activeView === "wallet" && (
@@ -422,7 +468,7 @@ export function App() {
                   <div className="statusBox">
                     <strong>{agentReply.spokenSummary}</strong>
                     <span>
-                      Intent: {agentReply.intent?.side} {agentReply.intent?.symbol} · ${agentReply.intent?.amountUsd} · no broadcast
+                      Intent: {agentReply.intent?.side} {agentReply.intent?.symbol} - ${agentReply.intent?.amountUsd} - no broadcast
                     </span>
                   </div>
                 )}
@@ -533,7 +579,7 @@ export function App() {
                       <span>{currency.format(action.simulatedUsd)}</span>
                     </div>
                     <p>{action.reason}</p>
-                    <small>Score {action.score ?? "--"} · {action.tokenAddress ? shortAddress(action.tokenAddress) : "live token"}</small>
+                    <small>Score {action.score ?? "--"} - {action.tokenAddress ? shortAddress(action.tokenAddress) : "live token"}</small>
                     <button className="quoteButton" onClick={() => prepareExecution(action)} disabled={action.action === "watch"}>
                       Prepare execution
                     </button>
@@ -636,6 +682,7 @@ export function App() {
           <div><strong>Transaction API</strong><span>/gas-price + /gas-limit + /simulate</span></div>
           <div><strong>Wallet API</strong><span>/balance + /portfolio before trade</span></div>
           <div><strong>Agent endpoint</strong><span>/api/agent/recommend/compact</span></div>
+          <div><strong>b402 hook</strong><span>/api/b402/manifest + /api/premium/signal</span></div>
         </section>
 
         <section className="opsPanel">
@@ -646,7 +693,7 @@ export function App() {
               {evidence?.recentCalls?.slice(0, 8).map((call) => (
                 <span key={`${call.endpoint}-${call.at}`}>
                   <strong>{call.module}</strong>
-                  {call.status} · {call.latencyMs} ms · {call.endpoint}
+                  {call.status} - {call.latencyMs} ms - {call.endpoint}
                 </span>
               )) ?? <span>No calls yet.</span>}
             </div>

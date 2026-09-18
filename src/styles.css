@@ -213,6 +213,7 @@ h2 {
 .metrics div,
 .panel,
 .walletBand,
+.firstStockPanel,
 .viewPanel,
 .filters,
 .apiEvidence div,
@@ -247,6 +248,91 @@ h2 {
   align-items: center;
   margin-bottom: 18px;
   padding: 14px 16px;
+}
+
+.firstStockPanel {
+  display: grid;
+  grid-template-columns: minmax(0, 1.2fr) minmax(320px, 0.8fr) auto;
+  gap: 14px;
+  align-items: center;
+  margin-bottom: 18px;
+  padding: 16px;
+}
+
+.firstStockPanel span {
+  display: block;
+  margin-top: 6px;
+  color: #848e9c;
+}
+
+.firstStockControls {
+  display: grid;
+  grid-template-columns: 92px minmax(130px, 1fr) auto;
+  gap: 8px;
+  align-items: end;
+}
+
+.firstStockControls label {
+  display: grid;
+  gap: 5px;
+  color: #848e9c;
+  font-size: 0.76rem;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.firstStockControls input,
+.firstStockControls select {
+  width: 100%;
+  height: 38px;
+  border: 1px solid #2b3139;
+  border-radius: 8px;
+  padding: 0 10px;
+  color: #eaecef;
+  background: #0b0e11;
+  outline: none;
+}
+
+.firstStockControls input:focus,
+.firstStockControls select:focus {
+  border-color: #f0b90b;
+}
+
+.firstStockControls button,
+.quickStocks button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 38px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-weight: 850;
+}
+
+.firstStockControls button {
+  gap: 8px;
+  padding: 0 14px;
+  border: 0;
+  color: #0b0e11;
+  background: #f0b90b;
+}
+
+.quickStocks {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(58px, 1fr));
+  gap: 8px;
+}
+
+.quickStocks button {
+  border: 1px solid #2b3139;
+  color: #eaecef;
+  background: #0b0e11;
+}
+
+.quickStocks button:hover {
+  color: #0b0e11;
+  border-color: #f0b90b;
+  background: #f0b90b;
 }
 
 .walletBand small {
@@ -573,7 +659,7 @@ h2 {
 
 .apiEvidence {
   display: grid;
-  grid-template-columns: repeat(6, minmax(0, 1fr));
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 12px;
   margin-top: 18px;
 }
@@ -701,7 +787,8 @@ h2 {
   .workbench,
   .apiEvidence,
   .opsPanel,
-  .infoGrid {
+  .infoGrid,
+  .firstStockPanel {
     grid-template-columns: 1fr;
   }
 
@@ -757,7 +844,8 @@ h2 {
   .quoteCards,
   .checklist,
   .txVerifier,
-  .agentPrompt {
+  .agentPrompt,
+  .firstStockControls {
     grid-template-columns: 1fr;
   }
 }

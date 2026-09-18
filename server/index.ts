@@ -88,7 +88,7 @@ type AgentAction = {
   tokenAddress: string;
 };
 
-type CacheStatus = "live" | "cached";
+type CacheStatus = "live" | "cached" | "fallback";
 
 type RwaTokenResult = {
   cacheStatus: CacheStatus;
@@ -217,7 +217,13 @@ async function fetchRwaTokens(platforms = ["bstock"], tabs = [9]): Promise<RwaTo
       )
     )
   );
-  const responses = await Promise.all(calls);
+  let responses: Array<{ data?: RwaToken[] }>;
+  try {
+    responses = await Promise.all(calls);
+  } catch (error) {
+    if (cached) return { cacheStatus: "cached", tokens: cached.tokens };
+    return { cacheStatus: "fallback", tokens: fallbackRwaTokens() };
+  }
   const seen = new Set<string>();
   const tokens = responses.flatMap((response) => response.data ?? []).filter((token) => {
     const key = token.tokenContractAddress.toLowerCase();
@@ -227,6 +233,26 @@ async function fetchRwaTokens(platforms = ["bstock"], tabs = [9]): Promise<RwaTo
   });
   rwaCache.set(cacheKey, { expiresAt: Date.now() + 30000, tokens });
   return { cacheStatus: "live", tokens };
+}
+
+function fallbackRwaTokens(): RwaToken[] {
+  return seedQuotes.map((quote) => {
+    const token = getToken(quote.symbol);
+    const onchainPrice = jitter(quote.onchainPrice, quote.symbol);
+    return {
+      tokenContractAddress: token?.address ?? `0x${crypto.createHash("sha256").update(quote.symbol).digest("hex").slice(0, 40)}`,
+      platformId: quote.tokenSource === "Ondo" ? "ondo" : "bstock",
+      tokenName: quote.name,
+      tokenSymbol: quote.symbol,
+      decimals: String(token?.decimals ?? 18),
+      underlyingTicker: token?.ticker ?? quote.symbol.replace(/[bx]$/i, ""),
+      underlyingName: quote.name,
+      tokenPrice: String(onchainPrice),
+      referencePrice: String(quote.referencePrice),
+      volume24H: String(quote.liquidityUsd),
+      statusInfo: { openState: quote.marketWindow === "open", reasonCode: quote.marketWindow.toUpperCase() }
+    };
+  });
 }
 
 function tokensToOpportunities(tokens: RwaToken[]): Opportunity[] {
@@ -841,7 +867,8 @@ app.get("/api/evidence", (_req, res) => {
       "Trading API",
       "Transaction API",
       "Wallet API",
-      "Agent endpoint"
+      "Agent endpoint",
+      "b402 payment hook"
     ],
     endpoints: {
       rwaTokens: config.rwaTokensPath,
@@ -855,9 +882,69 @@ app.get("/api/evidence", (_req, res) => {
       simulate: config.simulatePath,
       gasPrice: config.gasPricePath,
       gasLimit: config.gasLimitPath,
-      walletBalances: config.walletAllBalancesPath
+      walletBalances: config.walletAllBalancesPath,
+      b402Manifest: "/api/b402/manifest",
+      premiumSignal: "/api/premium/signal"
     },
     recentCalls: apiEvidence
+  });
+});
+
+app.get("/api/b402/manifest", (_req, res) => {
+  res.json({
+    ok: true,
+    mode: "demo-payment-manifest",
+    protocol: "b402/x402-compatible-shape",
+    chain: "BSC mainnet",
+    asset: "USDC",
+    priceUsd: Number(process.env.B402_DEMO_PRICE_USDC ?? 0.1),
+    paidRoute: "/api/premium/signal",
+    freeRoutes: ["/api/agent/recommend/compact", "/api/agent/interpret"],
+    settlement: "not-settled-in-demo",
+    safety: {
+      broadcasts_transactions: false,
+      requires_user_signature: true,
+      note: "This route demonstrates a payment-gated agent interface shape; no production payment is collected."
+    }
+  });
+});
+
+app.post("/api/premium/signal", async (req, res) => {
+  const demoPayment = req.header("x-demo-payment");
+  if (demoPayment !== "paid") {
+    res.status(402).json({
+      ok: false,
+      paymentRequired: true,
+      protocol: "b402/x402-compatible-shape",
+      amount: Number(process.env.B402_DEMO_PRICE_USDC ?? 0.1),
+      asset: "USDC",
+      chain: "BSC mainnet",
+      next: "Retry with x-demo-payment: paid for hackathon demo mode.",
+      noBroadcast: true
+    });
+    return;
+  }
+
+  const risk = req.body?.risk === "aggressive" ? "aggressive" : "balanced";
+  const maxTradeUsd = Number(req.body?.maxTradeUsd ?? 10);
+  const platforms = normalizePlatforms(req.body?.platforms);
+  const tabs = normalizeTabs(req.body?.tabs);
+  const { cacheStatus, tokens } = await fetchRwaTokens(platforms, tabs);
+  const opportunities = tokensToOpportunities(tokens).slice(0, 5);
+  res.json({
+    ok: true,
+    mode: "paid-demo-signal",
+    cacheStatus,
+    risk,
+    noBroadcast: true,
+    premiumSignal: {
+      summary: opportunities[0]
+        ? `${opportunities[0].symbol} has the top monitored spread at ${opportunities[0].spreadBps} bps.`
+        : "No tokenized-stock spread clears the current monitor.",
+      nextAction: "Call /api/execution/prepare before any user signature.",
+      maxTradeUsd
+    },
+    opportunities
   });
 });
 

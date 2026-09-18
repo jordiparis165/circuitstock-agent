@@ -13,14 +13,38 @@ services:
         value: /api/v1/dex/aggregator/quote
       - key: BINANCE_WEB3_SWAP_PATH
         value: /api/v1/dex/aggregator/swap
+      - key: BINANCE_WEB3_APPROVE_PATH
+        value: /api/v1/dex/aggregator/approve-transaction
+      - key: BINANCE_WEB3_AGGREGATOR_HISTORY_PATH
+        value: /api/v1/dex/aggregator/history
       - key: BINANCE_WEB3_SIMULATE_PATH
         value: /api/v1/dex/pre-transaction/simulate
+      - key: BINANCE_WEB3_GAS_PRICE_PATH
+        value: /api/v1/dex/pre-transaction/gas-price
+      - key: BINANCE_WEB3_GAS_LIMIT_PATH
+        value: /api/v1/dex/pre-transaction/gas-limit
       - key: BINANCE_WEB3_RWA_TOKENS_PATH
         value: /api/v1/dex/market/rwa/tokens
       - key: BINANCE_WEB3_RWA_PRICE_PATH
         value: /api/v1/dex/market/rwa/price
+      - key: BINANCE_WEB3_RWA_PLATFORMS_PATH
+        value: /api/v1/dex/market/rwa/platforms
+      - key: BINANCE_WEB3_RWA_SEARCH_PATH
+        value: /api/v1/dex/market/rwa/search
+      - key: BINANCE_WEB3_RWA_UNDERLYING_PROFILE_PATH
+        value: /api/v1/dex/market/rwa/underlying-profile
+      - key: BINANCE_WEB3_RWA_UNDERLYING_MARKET_PATH
+        value: /api/v1/dex/market/rwa/underlying-market
+      - key: BINANCE_WEB3_MARKET_CANDLES_PATH
+        value: /api/v1/dex/market/candles
+      - key: BINANCE_WEB3_WALLET_ALL_BALANCES_PATH
+        value: /api/v1/dex/balance/all-token-balances-by-address
+      - key: BINANCE_WEB3_WALLET_PORTFOLIO_OVERVIEW_PATH
+        value: /api/v1/dex/market/portfolio/overview
       - key: BSC_RPC_URL
         value: https://bsc-dataseed.binance.org
+      - key: B402_DEMO_PRICE_USDC
+        value: "0.10"
       - key: BINANCE_WEB3_API_KEY
         sync: false
       - key: BINANCE_WEB3_API_SECRET

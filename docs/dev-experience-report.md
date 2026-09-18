@@ -2,24 +2,41 @@
 
 ## Summary
 
-CircuitStock Agent integrates Binance Web3 API modules for the BNB Hack: Tokenized Stocks Edition:
+CircuitStock Agent integrates Binance Web3 APIs for the BNB Hack: Tokenized Stocks Edition. The production flow is:
 
-- RWA Data API for tokenized stock lists, reference prices, on-chain prices, market status, and liquidity.
-- RWA Data API search/platform/profile calls for ticker resolution and issuer context.
-- Market API for candle-derived volatility and momentum context.
-- Trading API for cross-DEX quote, official approval transaction, swap calldata construction, and transaction status lookup.
-- Transaction API for gas price, gas limit, and pre-trade simulation.
-- Wallet API for balances and portfolio checks before recommending a signed action.
+1. Scan live RWA tokenized stocks on BSC.
+2. Compare `tokenPrice` against `referencePrice`.
+3. Score spread, liquidity, source, market status, volatility, and risk profile.
+4. Resolve a stock prompt such as "buy $10 of TSLA".
+5. Fetch a Trading API quote.
+6. Fetch the official approval transaction.
+7. Build swap calldata.
+8. Check gas price and gas limit.
+9. Simulate before signing.
+10. Ask the user wallet to sign only; CircuitStock never broadcasts.
 
-The working flow is: scan RWA tokens, score opportunities, quote a small USDC trade, build swap calldata, simulate it, and leave final signing to the user wallet.
+This directly targets the hackathon scoring mix: technical depth, product creativity, developer experience, and judge-friendly UX.
 
-## Onboarding Notes
+## What Worked Well
 
-- The hackathon resources page was the most useful starting point because it linked the full docs index and `llms-full.txt`.
-- The key authentication detail is that the base URL is `https://web3.binance.com/build`.
-- The signed request path must include `/build`; signing only `/api/v1/...` causes invalid signature errors.
-- The required auth headers are `X-OC-APIKEY`, `X-OC-TIMESTAMP`, and `X-OC-SIGN`.
-- The signature is Base64-encoded HMAC-SHA256 over `timestamp + method + requestPath + body`.
+- RWA Data API is the strongest starting point for tokenized stocks. `tokenPrice`, `referencePrice`, `volume24H`, `statusInfo`, ticker, and platform data made the spread scanner possible without scraping or third-party data.
+- Trading API quote responses include enough route metadata to build a judge-readable execution preview: `quoteId`, vendor, price impact, expected output, approve target, and route status.
+- Transaction API simulation is useful even when the simulated transaction fails. It turns missing allowance or insufficient balance into a safe pre-flight message instead of a wasted on-chain attempt.
+- Wallet API calls let the agent prove it checked balances/portfolio before asking for any signature.
+- RWA search/profile/underlying-market endpoints make natural-language prompts much better: the agent can resolve "TSLA" and show company context before trade prep.
+
+## Concrete Integration Notes
+
+- Base URL used: `https://web3.binance.com/build`.
+- Signature path must include `/build`. Signing only `/api/v1/...` produced invalid signature errors.
+- Headers used for signed requests: `X-OC-APIKEY`, `X-OC-TIMESTAMP`, and `X-OC-SIGN`.
+- Signature shape: Base64 HMAC-SHA256 over `timestamp + method + requestPath + body`.
+- `GET` and `POST` must both be supported because quote/swap are GET-style calls while simulation/gas-limit use POST.
+- Quote IDs are short-lived. CircuitStock builds swap calldata immediately after selecting a quote and displays a clean "quote expired" error when needed.
+- Swap/approval responses can contain nested `signatureData`/`tx` objects. CircuitStock extracts EVM transaction fields defensively instead of assuming a single response shape.
+- Simulation can return HTTP success while execution status is failed. CircuitStock reads the nested status/fail reason and maps it to messages such as "Needs USDC approval" or "Simulation failed: allowance missing".
+- Some wallets do not support `eth_signTransaction`. The app now attempts raw signing, then falls back to copying/displaying the transaction payload with "No broadcast performed".
+- Rapid local scans can trigger rate-limit behavior. CircuitStock has a short cache and a `fallback` scanner mode so the dashboard stays usable while still labeling non-live data.
 
 ## Endpoints Used
 
@@ -40,41 +57,44 @@ The working flow is: scan RWA tokens, score opportunities, quote a small USDC tr
 - `GET /api/v1/dex/balance/all-token-balances-by-address`
 - `GET /api/v1/dex/market/portfolio/overview`
 
-## API Pitfalls
+## Product Decisions
 
-- The `/quote` result has a short-lived `quoteId`; `/swap` must be called quickly.
-- The simulation endpoint may return `success: true` while the simulated execution status is `FAILED`, for example when ERC-20 allowance is missing. The app treats this as useful pre-trade feedback rather than a transport failure.
-- RWA Data API calls can hit rate limits during rapid local iteration. CircuitStock uses a short 30-second cache for scanner data.
-- Swap responses may include nested `tx` payloads rather than a top-level transaction object, so the app extracts transaction data defensively.
-- During local testing, `POST /api/execution/prepare` successfully returned a quote, swap calldata and simulation. The simulation correctly caught `BEP20: transfer amount exceeds allowance`, which the UI now translates into an approval-first action.
-- Some supporting endpoints can fail independently of the main quote/swap path depending on wallet state, token support, or parameter shape. CircuitStock records these as non-blocking `apiWarnings` and surfaces them in `/api/evidence`.
-- Candlestick payload shapes are not assumed rigidly. CircuitStock extracts close/price fields defensively and uses them only as a signal layer, not as the source of execution truth.
-- The official stock-trading use case requires resolving tickers/company names before trading; CircuitStock added `/api/agent/interpret` so an agent can handle prompts like "quote TSLA" instead of requiring a UI symbol.
+- Default demo size is `$10` to keep the live flow small and judge-safe.
+- BSC mainnet only, spot only.
+- No automatic broadcast exists in the backend or frontend.
+- The frontend shows a complete execution checklist: live RWA data, quote, wallet check, approval API, approval calldata, swap calldata, gas estimate, research context, simulation, user signature only, and no broadcast.
+- A "First stock flow" was added for non-crypto-native judges: pick TSLA/NVDA/MSFT/SPY, preview a buy, and see the same quote/simulate/sign boundary.
+- Agent endpoints reuse the same engine as the UI, so Wallet Skills and Agent Studio do not rely on a separate code path.
 
-## Tokenized Stock Specifics
+## Agent Studio and b402/x402 Notes
 
-- RWA token payloads include both `tokenPrice` and `referencePrice`, which is exactly what a spread scanner needs.
-- `statusInfo` is useful for distinguishing normal trading from market-closed behavior.
-- bStocks routes can involve multiple DEX hops through USDC, BTCB, ETH, USDT, and the target bStock.
-- Simulation often reveals required approvals before users waste gas.
-- Approval calldata is returned through Trading API `signatureData`; CircuitStock extracts this into an approval transaction that can be signed separately from the swap.
-- Underlying profile and market endpoints are important for issuer/asset context, because tokenized securities are not only prices: market status, trading halts, attestations, and reference data quality matter.
+- `POST /api/agent/recommend/compact` returns a compact skill payload: recommendation, reason, confidence, required user action, transaction preview, cache status, and skills.
+- `POST /api/agent/interpret` accepts plain-language prompts and returns parsed intent, RWA research, optional execution preview, and a spoken summary.
+- `GET /api/b402/manifest` exposes a payment-gated agent route shape.
+- `POST /api/premium/signal` demonstrates a b402/x402-compatible `402 Payment Required` flow for premium monitoring. It is explicit demo mode and does not collect production payment.
+- `skills/circuitstock/SKILL.md` and `skills/circuitstock/skill.json` document `scan_tokenized_stock_spreads`, `prepare_rebalance`, `plain_language_stock_prompt`, and `premium_signal_demo`.
 
-## AI Stack Feedback
+## Deployment Lessons
 
-- The best Wallet Skills shape is two tools:
-  - `scan_tokenized_stock_spreads`
-- `prepare_rebalance`
-- `prepare_rebalance` returns a compact `required_user_action` so agent runtimes can ask the user for approval before any signing.
-- Agent Studio is a natural fit for persistent monitoring, especially if the runtime calls `/api/agent/recommend` on a schedule.
-- A first-class example for RWA agent workflows would help future builders move faster.
-- The compact endpoint now returns whether wallet checks, gas checks, and research context were loaded, so an Agent Studio runtime can decide whether to ask the user for more information before requesting a signature.
-- Wallet Skills are represented as `scan_tokenized_stock_spreads`, `prepare_rebalance`, and a natural-language stock prompt flow. This mirrors the documented Agentic Wallet stock-trading steps: resolve, check status, quote, then require confirmation.
-- BNB Agent Studio packaging is documented in `docs/agent-studio-x402.md`: ERC-8004 identity, ERC-8183 task interface, and x402/b402 payment-gated monitoring as the post-hackathon extension.
+- Vercel originally tried to process Render config when the repo contained `render.yaml`; `.vercelignore` now excludes deployment-only files that Vercel does not need.
+- Vercel production must set `VITE_API_BASE_URL` to the Render API URL, otherwise the static app calls `/api` on Vercel.
+- Render free web services work for the demo, but cold starts can delay the first API call.
+- Render root `/` returned 404 at first even though `/api/health` worked. The API now exposes a root JSON route with links to health, evidence, and agent endpoints.
+- `render.yaml` now lists non-secret endpoint defaults; only API key and secret are supplied as Render secrets.
 
-## Suggested Improvements
+## Suggested Binance Improvements
 
-- Provide a minimal official TypeScript client for signing `X-OC-*` requests.
-- Add copy-paste examples for quote -> swap -> simulate on BSC tokenized stocks.
-- Document the exact swap response transaction shape for each vendor.
-- Add a rate-limit header or retry guidance to simplify local development.
+- Publish a minimal official TypeScript client for signed Web3 API requests.
+- Add an end-to-end tokenized stock example: RWA tokens -> quote -> approval -> swap -> gas -> simulate.
+- Document exact response shapes for `signatureData` in approve/swap responses across vendors.
+- Expose rate-limit headers and retry-after guidance.
+- Provide a Wallet Skills / Agent Studio starter kit for RWA agents, including a no-broadcast signing boundary.
+
+## Verification Snapshot
+
+- Local build command: `npm run build`.
+- Production API: `https://circuitstock-agent-api.onrender.com/api/health`.
+- Production frontend: `https://circuitstock-agent.vercel.app`.
+- Sanitized evidence endpoint: `GET /api/evidence`.
+- Payment hook manifest: `GET /api/b402/manifest`.
+- Demo payment route: `POST /api/premium/signal` with optional header `x-demo-payment: paid`.

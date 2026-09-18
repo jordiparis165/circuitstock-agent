@@ -44,11 +44,24 @@ The server resolves the ticker, checks RWA search/profile/market data, prepares 
 
 ## x402 / b402 Commerce Hook
 
-CircuitStock does not need paid calls for the demo, but the natural extension is:
+CircuitStock includes a demo payment-gated agent shape:
 
-- Free tier: current spread scanner and quote-only preview.
-- Paid x402 call: persistent monitoring every N minutes, webhook alerts, or premium cross-protocol basket recommendations.
-- Payment-gated route candidate: `/api/agent/recommend/compact`.
+- Free tier: current spread scanner, quote-only preview, and natural-language prompt.
+- Manifest: `GET /api/b402/manifest`.
+- Payment-gated demo route: `POST /api/premium/signal`.
+- Without payment header, the route returns `402 Payment Required` with amount, asset, chain, and next step.
+- With hackathon demo header `x-demo-payment: paid`, it returns the premium signal and top monitored opportunities.
+
+Example:
+
+```bash
+curl -X POST https://circuitstock-agent-api.onrender.com/api/premium/signal \
+  -H "content-type: application/json" \
+  -H "x-demo-payment: paid" \
+  -d '{"risk":"balanced","maxTradeUsd":10,"platforms":["bstock"],"tabs":[9]}'
+```
+
+This is not production settlement. It is a judge-visible b402/x402-compatible route shape for Agent Studio commerce packaging.
 
 ## Safety Contract
 

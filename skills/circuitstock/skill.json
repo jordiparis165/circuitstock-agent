@@ -22,6 +22,11 @@
       "name": "resolve_tokenized_stock",
       "method": "GET",
       "path": "/api/rwa/search"
+    },
+    {
+      "name": "premium_signal_demo",
+      "method": "POST",
+      "path": "/api/premium/signal"
     }
   ],
   "safety": {
