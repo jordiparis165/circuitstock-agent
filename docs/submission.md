@@ -11,8 +11,10 @@ An agentic BSC tokenized-stocks scanner that detects on-chain/reference spreads,
 ## What It Uses
 
 - Binance Web3 RWA Data API
+- Binance Web3 Market API
 - Binance Web3 Trading API
 - Binance Web3 Transaction API
+- Binance Web3 Wallet API
 - BNB Smart Chain mainnet
 - Wallet-side signing boundary
 
@@ -33,7 +35,10 @@ http://localhost:5173
 
 - API key remains server-side.
 - `GET /api/market` returns live RWA data.
-- `POST /api/execution/prepare` returns quote, approval transaction payload, swap transaction payload, and simulation result.
+- `GET /api/evidence` returns sanitized API modules, endpoints, status, and latency.
+- `GET /api/research/:symbol` returns candles, volatility, underlying profile, and underlying market context.
+- `GET /api/wallet/:address` checks balances and portfolio state before execution.
+- `POST /api/execution/prepare` returns quote, official approval check, approval transaction payload, swap payload, gas checks, wallet snapshot, research context, and simulation result.
 - `POST /api/agent/recommend/compact` returns the concise payload intended for Wallet Skills / Agent Studio.
 - No automatic broadcast exists in the app.
 - `POST /api/agent/recommend` exposes the same logic for agent runtimes.
@@ -67,10 +72,19 @@ Input:
 }
 ```
 
-Output: quote, selected route, swap calldata, simulation result, and a no-broadcast checklist.
+Output: quote, selected route, official approval evidence, swap calldata, gas checks, wallet snapshot, simulation result, and a no-broadcast checklist.
 
 ## Deployment
 
 - API target: Render web service using `render.yaml`.
 - Frontend target: Vercel static Vite app using `VITE_API_BASE_URL`.
 - Secrets stay only in Render environment variables.
+
+## Final Submission Checklist
+
+- Make the GitHub repository public before judging.
+- Add Render API URL to `SUBMISSION.md`.
+- Add Vercel frontend URL to `SUBMISSION.md`.
+- Record a demo video under four minutes from `docs/demo-script.md`.
+- Add desktop and mobile screenshots in `screenshots/`.
+- Rotate Binance Web3 credentials after the event.

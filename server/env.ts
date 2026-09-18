@@ -46,9 +46,22 @@ export const config = {
   baseUrl: pickEnv(["BINANCE_WEB3_BASE_URL"]) ?? "https://web3.binance.com/build",
   quotePath: pickEnv(["BINANCE_WEB3_QUOTE_PATH"]) ?? "/api/v1/dex/aggregator/quote",
   swapPath: pickEnv(["BINANCE_WEB3_SWAP_PATH"]) ?? "/api/v1/dex/aggregator/swap",
+  approvePath: pickEnv(["BINANCE_WEB3_APPROVE_PATH"]) ?? "/api/v1/dex/aggregator/approve-transaction",
+  aggregatorHistoryPath: pickEnv(["BINANCE_WEB3_AGGREGATOR_HISTORY_PATH"]) ?? "/api/v1/dex/aggregator/history",
   simulatePath: pickEnv(["BINANCE_WEB3_SIMULATE_PATH"]) ?? "/api/v1/dex/pre-transaction/simulate",
+  gasPricePath: pickEnv(["BINANCE_WEB3_GAS_PRICE_PATH"]) ?? "/api/v1/dex/pre-transaction/gas-price",
+  gasLimitPath: pickEnv(["BINANCE_WEB3_GAS_LIMIT_PATH"]) ?? "/api/v1/dex/pre-transaction/gas-limit",
   rwaTokensPath: pickEnv(["BINANCE_WEB3_RWA_TOKENS_PATH"]) ?? "/api/v1/dex/market/rwa/tokens",
   rwaPricePath: pickEnv(["BINANCE_WEB3_RWA_PRICE_PATH"]) ?? "/api/v1/dex/market/rwa/price",
+  rwaUnderlyingProfilePath:
+    pickEnv(["BINANCE_WEB3_RWA_UNDERLYING_PROFILE_PATH"]) ?? "/api/v1/dex/market/rwa/underlying-profile",
+  rwaUnderlyingMarketPath:
+    pickEnv(["BINANCE_WEB3_RWA_UNDERLYING_MARKET_PATH"]) ?? "/api/v1/dex/market/rwa/underlying-market",
+  marketCandlesPath: pickEnv(["BINANCE_WEB3_MARKET_CANDLES_PATH"]) ?? "/api/v1/dex/market/candles",
+  walletAllBalancesPath:
+    pickEnv(["BINANCE_WEB3_WALLET_ALL_BALANCES_PATH"]) ?? "/api/v1/dex/balance/all-token-balances-by-address",
+  walletPortfolioOverviewPath:
+    pickEnv(["BINANCE_WEB3_WALLET_PORTFOLIO_OVERVIEW_PATH"]) ?? "/api/v1/dex/market/portfolio/overview",
   bscRpcUrl: pickEnv(["BSC_RPC_URL"]) ?? "https://bsc-dataseed.binance.org"
 };
 

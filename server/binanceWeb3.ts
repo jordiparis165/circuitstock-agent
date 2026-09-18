@@ -13,6 +13,13 @@ type SwapRequest = QuoteRequest & {
   quoteId: string;
 };
 
+type ApproveRequest = {
+  tokenAddress: string;
+  amount: string;
+  walletAddress: string;
+  vendor?: string;
+};
+
 type EvmTx = {
   from: string;
   to: string;
@@ -189,6 +196,96 @@ export async function getBinanceSwap(request: SwapRequest): Promise<BinanceCallR
       autoSlippage: "false",
       gasLevel: "average",
       priceImpactProtectionPercent: "5"
+    })
+  );
+}
+
+export async function getBinanceApproveTransaction(request: ApproveRequest): Promise<BinanceCallResult> {
+  return toResult(config.approvePath, () =>
+    callBinanceGet(config.approvePath, {
+      binanceChainId: 56,
+      tokenContractAddress: request.tokenAddress,
+      tokenAddress: request.tokenAddress,
+      approveAmount: request.amount,
+      amount: request.amount,
+      userWalletAddress: request.walletAddress,
+      vendor: request.vendor
+    })
+  );
+}
+
+export async function getGasPrice(): Promise<BinanceCallResult> {
+  return toResult(config.gasPricePath, () => callBinanceGet(config.gasPricePath, { binanceChainId: 56 }));
+}
+
+export async function getGasLimit(evmTx: EvmTx): Promise<BinanceCallResult> {
+  return toResult(config.gasLimitPath, () =>
+    callBinancePost(config.gasLimitPath, {
+      binanceChainId: "56",
+      evmTx: {
+        from: evmTx.from,
+        to: evmTx.to,
+        value: evmTx.value ?? "0",
+        data: evmTx.data ?? "0x"
+      }
+    })
+  );
+}
+
+export async function getWalletBalances(walletAddress: string): Promise<BinanceCallResult> {
+  return toResult(config.walletAllBalancesPath, () =>
+    callBinanceGet(config.walletAllBalancesPath, {
+      binanceChainId: 56,
+      address: walletAddress,
+      walletAddress
+    })
+  );
+}
+
+export async function getPortfolioOverview(walletAddress: string): Promise<BinanceCallResult> {
+  return toResult(config.walletPortfolioOverviewPath, () =>
+    callBinanceGet(config.walletPortfolioOverviewPath, {
+      binanceChainId: 56,
+      address: walletAddress,
+      walletAddress
+    })
+  );
+}
+
+export async function getMarketCandles(tokenAddress: string): Promise<BinanceCallResult> {
+  return toResult(config.marketCandlesPath, () =>
+    callBinanceGet(config.marketCandlesPath, {
+      binanceChainId: 56,
+      tokenContractAddress: tokenAddress,
+      interval: "1h",
+      limit: 24
+    })
+  );
+}
+
+export async function getRwaUnderlyingProfile(underlyingTicker: string): Promise<BinanceCallResult> {
+  return toResult(config.rwaUnderlyingProfilePath, () =>
+    callBinanceGet(config.rwaUnderlyingProfilePath, {
+      binanceChainId: 56,
+      underlyingTicker
+    })
+  );
+}
+
+export async function getRwaUnderlyingMarket(underlyingTicker: string): Promise<BinanceCallResult> {
+  return toResult(config.rwaUnderlyingMarketPath, () =>
+    callBinanceGet(config.rwaUnderlyingMarketPath, {
+      binanceChainId: 56,
+      underlyingTicker
+    })
+  );
+}
+
+export async function getAggregatorHistory(txHash: string): Promise<BinanceCallResult> {
+  return toResult(config.aggregatorHistoryPath, () =>
+    callBinanceGet(config.aggregatorHistoryPath, {
+      binanceChainId: 56,
+      txHash
     })
   );
 }

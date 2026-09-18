@@ -42,9 +42,14 @@ Official Binance Web3 API paths used by the MVP:
 
 - RWA token list: `GET /api/v1/dex/market/rwa/tokens`
 - RWA prices: `GET /api/v1/dex/market/rwa/price`
+- RWA profile and market context: `GET /api/v1/dex/market/rwa/underlying-profile`, `GET /api/v1/dex/market/rwa/underlying-market`
+- Market candles: `GET /api/v1/dex/market/candles`
 - Aggregated quote: `GET /api/v1/dex/aggregator/quote`
+- Approval transaction: `GET /api/v1/dex/aggregator/approve-transaction`
 - Swap build: `GET /api/v1/dex/aggregator/swap`
+- Gas checks: `GET /api/v1/dex/pre-transaction/gas-price`, `POST /api/v1/dex/pre-transaction/gas-limit`
 - Transaction simulation: `POST /api/v1/dex/pre-transaction/simulate`
+- Wallet checks: `GET /api/v1/dex/balance/all-token-balances-by-address`, `GET /api/v1/dex/market/portfolio/overview`
 
 ## Run
 
@@ -71,6 +76,10 @@ API: http://localhost:8787
 - `POST /api/agent/recommend` - agent-friendly recommendation payload for Wallet Skills / BNB Agent Studio.
 - `POST /api/agent/recommend/compact` - compact agent payload for skills and agent runtimes.
 - `POST /api/execution/prepare` - quote, build swap, simulate, and return unsigned tx payload.
+- `GET /api/evidence` - sanitized evidence of Binance modules, endpoints, status and latency.
+- `GET /api/research/:symbol` - candles, volatility, underlying profile and market context.
+- `GET /api/wallet/:address` - balance and portfolio checks.
+- `GET /api/tx/status/:hash` - post-signature transaction status lookup if a user broadcasts manually.
 - `POST /api/quote`, `POST /api/swap`, `POST /api/simulate` - individual integration steps for debugging.
 
 ## Submission Materials

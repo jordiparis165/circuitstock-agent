@@ -2,13 +2,28 @@ import crypto from "node:crypto";
 import cors from "cors";
 import express from "express";
 import morgan from "morgan";
-import { callBinanceGet, getBinanceQuote, getBinanceSwap, simulateEvmTransaction } from "./binanceWeb3";
+import {
+  callBinanceGet,
+  getAggregatorHistory,
+  getBinanceApproveTransaction,
+  getBinanceQuote,
+  getBinanceSwap,
+  getGasLimit,
+  getGasPrice,
+  getMarketCandles,
+  getPortfolioOverview,
+  getRwaUnderlyingMarket,
+  getRwaUnderlyingProfile,
+  getWalletBalances,
+  simulateEvmTransaction
+} from "./binanceWeb3";
 import { config } from "./env";
 import { getToken, quoteTokens, tokenRegistry } from "./tokenRegistry";
 
 const app = express();
 const port = Number(process.env.PORT ?? 8787);
 const rwaCache = new Map<string, { expiresAt: number; tokens: RwaToken[] }>();
+const apiEvidence: ApiEvidence[] = [];
 
 app.use(cors());
 app.use(express.json());
@@ -67,6 +82,15 @@ type RwaTokenResult = {
   tokens: RwaToken[];
 };
 
+type ApiEvidence = {
+  module: string;
+  endpoint: string;
+  status: "ok" | "failed";
+  latencyMs: number;
+  at: string;
+  note?: string;
+};
+
 const seedQuotes: Omit<MarketQuote, "spreadBps" | "contractReady">[] = [
   {
     symbol: "AAPLx",
@@ -106,6 +130,34 @@ const seedQuotes: Omit<MarketQuote, "spreadBps" | "contractReady">[] = [
   }
 ];
 
+async function measured<T>(module: string, endpoint: string, note: string, fn: () => Promise<T>): Promise<T> {
+  const startedAt = Date.now();
+  try {
+    const result = await fn();
+    apiEvidence.unshift({
+      module,
+      endpoint,
+      status: "ok",
+      latencyMs: Date.now() - startedAt,
+      at: new Date().toISOString(),
+      note
+    });
+    apiEvidence.splice(24);
+    return result;
+  } catch (error) {
+    apiEvidence.unshift({
+      module,
+      endpoint,
+      status: "failed",
+      latencyMs: Date.now() - startedAt,
+      at: new Date().toISOString(),
+      note: normalizeApiError(error as Error & { status?: number; body?: string }).kind
+    });
+    apiEvidence.splice(24);
+    throw error;
+  }
+}
+
 function jitter(value: number, symbol: string): number {
   const minute = Math.floor(Date.now() / 60000);
   const hash = crypto.createHash("sha256").update(`${symbol}:${minute}`).digest();
@@ -143,11 +195,13 @@ async function fetchRwaTokens(platforms = ["bstock"], tabs = [9]): Promise<RwaTo
   const tabFilters = tabs.length > 0 ? tabs : [undefined];
   const calls = platforms.flatMap((platformId) =>
     tabFilters.map((tabId) =>
-      callBinanceGet<{ data?: RwaToken[] }>(config.rwaTokensPath, {
-        binanceChainId: 56,
-        platformId,
-        tabId
-      })
+      measured("RWA Data API", config.rwaTokensPath, `platform=${platformId} tab=${tabId ?? "all"}`, () =>
+        callBinanceGet<{ data?: RwaToken[] }>(config.rwaTokensPath, {
+          binanceChainId: 56,
+          platformId,
+          tabId
+        })
+      )
     )
   );
   const responses = await Promise.all(calls);
@@ -200,11 +254,10 @@ function tokensToOpportunities(tokens: RwaToken[]): Opportunity[] {
     .sort((a, b) => b.score - a.score);
 }
 
-async function getTokenBySymbol(symbol: string): Promise<{ symbol: string; address: string; decimals: number; name: string } | null> {
+async function getTokenBySymbol(
+  symbol: string
+): Promise<{ symbol: string; address: string; decimals: number; name: string; underlyingTicker?: string } | null> {
   const local = getToken(symbol);
-  if (local?.address) {
-    return { symbol: local.symbol, address: local.address, decimals: local.decimals, name: local.name };
-  }
   for (const cached of rwaCache.values()) {
     const found = cached.tokens.find((token) => token.tokenSymbol.toLowerCase() === symbol.toLowerCase());
     if (found) {
@@ -212,9 +265,14 @@ async function getTokenBySymbol(symbol: string): Promise<{ symbol: string; addre
         symbol: found.tokenSymbol,
         address: found.tokenContractAddress,
         decimals: Number(found.decimals || 18),
-        name: found.underlyingName || found.tokenName
+        name: found.underlyingName || found.tokenName,
+        underlyingTicker: found.underlyingTicker
       };
     }
+  }
+  if (local?.address) {
+    const inferredTicker = local.symbol.replace(/B$/i, "").replace(/x$/i, "");
+    return { symbol: local.symbol, address: local.address, decimals: local.decimals, name: local.name, underlyingTicker: inferredTicker };
   }
   const { tokens } = await fetchRwaTokens(["bstock", "ondo"], [9, 4, 11]);
   const found = tokens.find((token) => token.tokenSymbol.toLowerCase() === symbol.toLowerCase());
@@ -223,7 +281,8 @@ async function getTokenBySymbol(symbol: string): Promise<{ symbol: string; addre
     symbol: found.tokenSymbol,
     address: found.tokenContractAddress,
     decimals: Number(found.decimals || 18),
-    name: found.underlyingName || found.tokenName
+    name: found.underlyingName || found.tokenName,
+    underlyingTicker: found.underlyingTicker
   };
 }
 
@@ -390,6 +449,49 @@ function actionFromOpportunity(opportunity: Opportunity, maxTradeUsd: number): A
   };
 }
 
+function compactError(result: unknown) {
+  const payload = result as { ok?: boolean; error?: string; body?: string; status?: number };
+  if (payload.ok !== false) return null;
+  return normalizeApiError({ message: payload.error ?? "API call failed", body: payload.body, status: payload.status } as Error & {
+    status?: number;
+    body?: string;
+  });
+}
+
+function findNumbersDeep(value: unknown, keys = ["close", "c", "price"]): number[] {
+  if (!value) return [];
+  if (Array.isArray(value)) return value.flatMap((item) => findNumbersDeep(item, keys));
+  if (typeof value === "object") {
+    const record = value as Record<string, unknown>;
+    const direct = keys
+      .map((key) => record[key])
+      .map((item) => Number(item))
+      .filter((item) => Number.isFinite(item) && item > 0);
+    return direct.length ? direct : Object.values(record).flatMap((item) => findNumbersDeep(item, keys));
+  }
+  return [];
+}
+
+function summarizeCandles(candles: unknown) {
+  const prices = findNumbersDeep(candles).slice(-24);
+  if (prices.length < 2) {
+    return { points: prices.length, volatilityBps: null, changeBps: null, signal: "insufficient_candles" };
+  }
+  const first = prices[0];
+  const last = prices[prices.length - 1];
+  const returns = prices.slice(1).map((price, index) => (price - prices[index]) / prices[index]);
+  const mean = returns.reduce((sum, item) => sum + item, 0) / returns.length;
+  const variance = returns.reduce((sum, item) => sum + (item - mean) ** 2, 0) / returns.length;
+  const volatilityBps = Math.round(Math.sqrt(variance) * 10000);
+  const changeBps = Math.round(((last - first) / first) * 10000);
+  return {
+    points: prices.length,
+    volatilityBps,
+    changeBps,
+    signal: Math.abs(changeBps) > 100 ? "momentum_active" : volatilityBps > 60 ? "volatile" : "calm"
+  };
+}
+
 async function prepareExecution(symbol: string, side: "buy" | "sell", amountUsd: number, walletAddress?: string) {
   const token = await getTokenBySymbol(symbol);
   if (!token) {
@@ -409,16 +511,88 @@ async function prepareExecution(symbol: string, side: "buy" | "sell", amountUsd:
   let swap = null;
   let evmTx = null;
   let approvalTx = null;
+  let officialApproval = null;
   let signatureData: unknown[] = [];
   let simulation = null;
+  let gasPrice = null;
+  let gasLimit = null;
+  let walletBalances = null;
+  let portfolioOverview = null;
+  let candles = null;
+  let underlyingProfile = null;
+  let underlyingMarket = null;
+  const apiWarnings = [];
+
+  const researchCalls = await Promise.allSettled([
+    measured("Market API", config.marketCandlesPath, token.symbol, () => getMarketCandles(token.address)),
+    token.underlyingTicker
+      ? measured("RWA Data API", config.rwaUnderlyingProfilePath, token.underlyingTicker, () =>
+          getRwaUnderlyingProfile(token.underlyingTicker!)
+        )
+      : Promise.resolve(null),
+    token.underlyingTicker
+      ? measured("RWA Data API", config.rwaUnderlyingMarketPath, token.underlyingTicker, () =>
+          getRwaUnderlyingMarket(token.underlyingTicker!)
+        )
+      : Promise.resolve(null)
+  ]);
+  candles = researchCalls[0].status === "fulfilled" ? researchCalls[0].value : null;
+  underlyingProfile = researchCalls[1].status === "fulfilled" ? researchCalls[1].value : null;
+  underlyingMarket = researchCalls[2].status === "fulfilled" ? researchCalls[2].value : null;
+  for (const result of researchCalls) {
+    if (result.status === "fulfilled") {
+      const warning = compactError(result.value);
+      if (warning) apiWarnings.push(warning);
+    } else {
+      apiWarnings.push(normalizeApiError(result.reason as Error & { status?: number; body?: string }));
+    }
+  }
+
+  if (walletAddress) {
+    const walletCalls = await Promise.allSettled([
+      measured("Wallet API", config.walletAllBalancesPath, walletAddress, () => getWalletBalances(walletAddress)),
+      measured("Wallet API", config.walletPortfolioOverviewPath, walletAddress, () => getPortfolioOverview(walletAddress))
+    ]);
+    walletBalances = walletCalls[0].status === "fulfilled" ? walletCalls[0].value : null;
+    portfolioOverview = walletCalls[1].status === "fulfilled" ? walletCalls[1].value : null;
+    for (const result of walletCalls) {
+      if (result.status === "fulfilled") {
+        const warning = compactError(result.value);
+        if (warning) apiWarnings.push(warning);
+      } else {
+        apiWarnings.push(normalizeApiError(result.reason as Error & { status?: number; body?: string }));
+      }
+    }
+  }
+
   if (quote.ok && quoteId && walletAddress) {
+    const vendor = typeof selectedQuote?.vendorName === "string" ? selectedQuote.vendorName : undefined;
+    officialApproval = await measured("Trading API", config.approvePath, "official approve transaction", () =>
+      getBinanceApproveTransaction({ tokenAddress: fromTokenAddress, amount, walletAddress, vendor })
+    );
     swap = await getBinanceSwap({ fromTokenAddress, toTokenAddress, amount, walletAddress, slippageBps: 50, quoteId });
     evmTx = swap.ok ? pickEvmTx(swap.data) : null;
     const approval = swap.ok ? parseSignatureData(swap.data, walletAddress) : { approvalTx: null, raw: [] };
     approvalTx = approval.approvalTx;
     signatureData = approval.raw;
     if (evmTx) {
-      simulation = await simulateEvmTransaction({ ...evmTx, from: evmTx.from ?? walletAddress });
+      const txWithFrom = { ...evmTx, from: evmTx.from ?? walletAddress };
+      const txChecks = await Promise.allSettled([
+        measured("Transaction API", config.gasPricePath, "gas price", () => getGasPrice()),
+        measured("Transaction API", config.gasLimitPath, "gas limit", () => getGasLimit(txWithFrom)),
+        measured("Transaction API", config.simulatePath, "pre-transaction simulation", () => simulateEvmTransaction(txWithFrom))
+      ]);
+      gasPrice = txChecks[0].status === "fulfilled" ? txChecks[0].value : null;
+      gasLimit = txChecks[1].status === "fulfilled" ? txChecks[1].value : null;
+      simulation = txChecks[2].status === "fulfilled" ? txChecks[2].value : null;
+      for (const result of txChecks) {
+        if (result.status === "fulfilled") {
+          const warning = compactError(result.value);
+          if (warning) apiWarnings.push(warning);
+        } else {
+          apiWarnings.push(normalizeApiError(result.reason as Error & { status?: number; body?: string }));
+        }
+      }
     }
   }
   const swapTx = evmTx ? { ...evmTx, from: evmTx.from ?? walletAddress } : null;
@@ -433,9 +607,23 @@ async function prepareExecution(symbol: string, side: "buy" | "sell", amountUsd:
     selectedQuote,
     swap,
     approvalTx,
+    officialApproval,
     signatureData,
     swapTx,
     evmTx: swapTx,
+    gasPrice,
+    gasLimit,
+    walletSnapshot: {
+      balances: walletBalances,
+      portfolio: portfolioOverview
+    },
+    research: {
+      candles,
+      candleSummary: candles && "data" in candles ? summarizeCandles((candles as { data?: unknown }).data) : null,
+      underlyingProfile,
+      underlyingMarket
+    },
+    apiWarnings,
     simulation,
     simulationSummary,
     humanStatus: simulationSummary?.humanStatus ?? (quote.ok ? "Quote ready. Connect a wallet to build and simulate calldata." : "Quote failed."),
@@ -445,6 +633,10 @@ async function prepareExecution(symbol: string, side: "buy" | "sell", amountUsd:
       approvalCalldata: Boolean(approvalTx),
       swapBuilt: Boolean(evmTx),
       simulated: Boolean(simulation?.ok),
+      walletBalances: Boolean(walletBalances && (walletBalances as { ok?: boolean }).ok !== false),
+      officialApproval: Boolean(officialApproval && (officialApproval as { ok?: boolean }).ok !== false),
+      gasEstimated: Boolean(gasPrice || gasLimit),
+      researchLoaded: Boolean(candles || underlyingProfile || underlyingMarket),
       requiresUserSignature: true,
       broadcasted: false
     }
@@ -537,6 +729,93 @@ app.get("/api/rwa/prices", async (_req, res) => {
       body: typedError.body
     });
   }
+});
+
+app.get("/api/research/:symbol", async (req, res) => {
+  const token = await getTokenBySymbol(String(req.params.symbol ?? ""));
+  if (!token) {
+    res.status(404).json({ ok: false, error: "Unknown token symbol." });
+    return;
+  }
+
+  const [candles, profile, market] = await Promise.allSettled([
+    measured("Market API", config.marketCandlesPath, token.symbol, () => getMarketCandles(token.address)),
+    token.underlyingTicker
+      ? measured("RWA Data API", config.rwaUnderlyingProfilePath, token.underlyingTicker, () =>
+          getRwaUnderlyingProfile(token.underlyingTicker!)
+        )
+      : Promise.resolve(null),
+    token.underlyingTicker
+      ? measured("RWA Data API", config.rwaUnderlyingMarketPath, token.underlyingTicker, () =>
+          getRwaUnderlyingMarket(token.underlyingTicker!)
+        )
+      : Promise.resolve(null)
+  ]);
+
+  const candleData = candles.status === "fulfilled" ? candles.value : null;
+  res.json({
+    ok: true,
+    token,
+    candles: candleData,
+    candleSummary: candleData && "data" in candleData ? summarizeCandles((candleData as { data?: unknown }).data) : null,
+    underlyingProfile: profile.status === "fulfilled" ? profile.value : null,
+    underlyingMarket: market.status === "fulfilled" ? market.value : null
+  });
+});
+
+app.get("/api/wallet/:address", async (req, res) => {
+  const address = String(req.params.address ?? "");
+  if (!/^0x[a-fA-F0-9]{40}$/.test(address)) {
+    res.status(400).json({ ok: false, error: "Valid EVM address required." });
+    return;
+  }
+  const [balances, portfolio] = await Promise.allSettled([
+    measured("Wallet API", config.walletAllBalancesPath, address, () => getWalletBalances(address)),
+    measured("Wallet API", config.walletPortfolioOverviewPath, address, () => getPortfolioOverview(address))
+  ]);
+  res.json({
+    ok: true,
+    address,
+    balances: balances.status === "fulfilled" ? balances.value : { ok: false, error: String(balances.reason) },
+    portfolio: portfolio.status === "fulfilled" ? portfolio.value : { ok: false, error: String(portfolio.reason) }
+  });
+});
+
+app.get("/api/tx/status/:hash", async (req, res) => {
+  const txHash = String(req.params.hash ?? "");
+  if (!/^0x[a-fA-F0-9]{64}$/.test(txHash)) {
+    res.status(400).json({ ok: false, error: "Valid transaction hash required." });
+    return;
+  }
+  res.json(await measured("Trading API", config.aggregatorHistoryPath, "transaction status", () => getAggregatorHistory(txHash)));
+});
+
+app.get("/api/evidence", (_req, res) => {
+  res.json({
+    ok: true,
+    baseUrl: config.baseUrl,
+    modules: [
+      "RWA Data API",
+      "Market API",
+      "Trading API",
+      "Transaction API",
+      "Wallet API",
+      "Agent endpoint"
+    ],
+    endpoints: {
+      rwaTokens: config.rwaTokensPath,
+      rwaProfile: config.rwaUnderlyingProfilePath,
+      marketCandles: config.marketCandlesPath,
+      quote: config.quotePath,
+      approve: config.approvePath,
+      swap: config.swapPath,
+      simulate: config.simulatePath,
+      gasPrice: config.gasPricePath,
+      gasLimit: config.gasLimitPath,
+      walletBalances: config.walletAllBalancesPath
+    },
+    recentCalls: apiEvidence
+  });
 });
 
 app.post("/api/quote", async (req, res) => {
@@ -704,6 +983,9 @@ app.post("/api/agent/recommend/compact", async (req, res) => {
             swapReady: Boolean(execution.swapTx),
             simulationStatus: execution.simulationSummary?.status,
             humanStatus: execution.humanStatus,
+            walletChecked: Boolean(execution.walletSnapshot?.balances),
+            gasEstimated: Boolean(execution.gasPrice || execution.gasLimit),
+            researchLoaded: Boolean(execution.research?.candles || execution.research?.underlyingProfile),
             broadcasted: false
           }
         : null,
@@ -724,8 +1006,13 @@ app.post("/api/strategy", async (req, res) => {
   const minScore = risk === "aggressive" ? 20 : 35;
 
   try {
-    const { tokens } = await fetchRwaTokens(platforms, tabs);
-    const opportunities = tokensToOpportunities(tokens);
+    let { tokens } = await fetchRwaTokens(platforms, tabs);
+    let opportunities = tokensToOpportunities(tokens);
+    if (opportunities.length === 0 && tabs.length > 0) {
+      const expanded = await fetchRwaTokens(platforms, []);
+      tokens = expanded.tokens;
+      opportunities = tokensToOpportunities(tokens);
+    }
     const actions = opportunities
       .filter((opportunity) => opportunity.score >= minScore)
       .slice(0, 4)

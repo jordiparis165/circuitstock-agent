@@ -202,6 +202,13 @@ h2 {
   margin-top: 3px;
 }
 
+.walletBand small {
+  display: block;
+  margin-top: 5px;
+  color: #8a4d26;
+  font-size: 0.78rem;
+}
+
 .walletBand button,
 .quoteButton {
   display: inline-flex;
@@ -489,7 +496,7 @@ h2 {
 
 .apiEvidence {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(6, minmax(0, 1fr));
   gap: 12px;
   margin-top: 20px;
 }
@@ -514,6 +521,81 @@ h2 {
   font-size: 0.85rem;
 }
 
+.warningList {
+  display: grid;
+  gap: 6px;
+}
+
+.warningList span {
+  padding: 8px;
+  border: 1px solid #ead4b8;
+  border-radius: 8px;
+  color: #7a3f18;
+  background: #fff4e8;
+  font-size: 0.82rem;
+}
+
+.opsPanel {
+  display: grid;
+  grid-template-columns: minmax(0, 1.2fr) minmax(280px, 0.8fr);
+  gap: 20px;
+  margin-top: 20px;
+}
+
+.opsPanel > div {
+  padding: 18px;
+  border: 1px solid #d8d2c2;
+  border-radius: 8px;
+  background: #fffdf6;
+}
+
+.evidenceRows {
+  display: grid;
+  gap: 8px;
+  margin-top: 14px;
+}
+
+.evidenceRows span {
+  padding: 10px;
+  border: 1px solid #ebe5d5;
+  border-radius: 8px;
+  color: #647069;
+  background: #fbf8ef;
+  overflow-wrap: anywhere;
+  font-size: 0.82rem;
+}
+
+.evidenceRows strong {
+  display: block;
+  color: #17201b;
+}
+
+.txVerifier {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 8px;
+  margin-top: 14px;
+}
+
+.txVerifier input {
+  min-width: 0;
+  height: 40px;
+  border: 1px solid #d8d2c2;
+  border-radius: 8px;
+  padding: 0 10px;
+  background: #fffaf0;
+}
+
+.txVerifier button {
+  border: 0;
+  border-radius: 8px;
+  padding: 0 14px;
+  color: #13231b;
+  background: #f2c94c;
+  cursor: pointer;
+  font-weight: 800;
+}
+
 @media (max-width: 980px) {
   .shell {
     grid-template-columns: 1fr;
@@ -525,7 +607,8 @@ h2 {
 
   .metrics,
   .workbench,
-  .apiEvidence {
+  .apiEvidence,
+  .opsPanel {
     grid-template-columns: 1fr;
   }
 
@@ -565,9 +648,14 @@ h2 {
     grid-template-columns: 1fr;
   }
 
+  .row.head {
+    display: none;
+  }
+
   .signGrid,
   .quoteCards,
-  .checklist {
+  .checklist,
+  .txVerifier {
     grid-template-columns: 1fr;
   }
 }

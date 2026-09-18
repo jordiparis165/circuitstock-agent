@@ -1,0 +1,23 @@
+{
+  "name": "circuitstock",
+  "version": "0.1.0",
+  "description": "Scan BSC tokenized-stock spreads and prepare safe no-broadcast rebalance transactions.",
+  "tools": [
+    {
+      "name": "scan_tokenized_stock_spreads",
+      "method": "POST",
+      "path": "/api/agent/recommend/compact"
+    },
+    {
+      "name": "prepare_rebalance",
+      "method": "POST",
+      "path": "/api/execution/prepare"
+    }
+  ],
+  "safety": {
+    "broadcasts_transactions": false,
+    "requires_user_signature": true,
+    "chain": "BSC mainnet",
+    "spot_only": true
+  }
+}

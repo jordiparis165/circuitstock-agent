@@ -88,9 +88,27 @@ type ExecutionPreview = {
     approvalCalldata?: boolean;
     swapBuilt: boolean;
     simulated: boolean;
+    walletBalances?: boolean;
+    officialApproval?: boolean;
+    gasEstimated?: boolean;
+    researchLoaded?: boolean;
     requiresUserSignature: boolean;
     broadcasted: boolean;
   };
+  gasPrice?: { ok: boolean; data?: unknown } | null;
+  gasLimit?: { ok: boolean; data?: unknown } | null;
+  walletSnapshot?: { balances?: { ok?: boolean } | null; portfolio?: { ok?: boolean } | null };
+  research?: {
+    candleSummary?: {
+      points: number;
+      volatilityBps: number | null;
+      changeBps: number | null;
+      signal: string;
+    } | null;
+    underlyingProfile?: { ok?: boolean } | null;
+    underlyingMarket?: { ok?: boolean } | null;
+  };
+  apiWarnings?: Array<{ kind?: string; message?: string; status?: number }>;
   simulationSummary?: {
     status?: string;
     failReason?: string;
@@ -104,6 +122,19 @@ type ExecutionPreview = {
     amountUsd: number;
     walletAddress?: string;
   };
+};
+
+type Evidence = {
+  ok: boolean;
+  modules: string[];
+  recentCalls: Array<{
+    module: string;
+    endpoint: string;
+    status: "ok" | "failed";
+    latencyMs: number;
+    at: string;
+    note?: string;
+  }>;
 };
 
 const API_BASE = (import.meta.env.VITE_API_BASE_URL ?? "").replace(/\/$/, "");
@@ -130,6 +161,9 @@ export function App() {
   const [walletAddress, setWalletAddress] = useState<string | null>(null);
   const [preview, setPreview] = useState<ExecutionPreview | null>(null);
   const [signatureResult, setSignatureResult] = useState<string | null>(null);
+  const [evidence, setEvidence] = useState<Evidence | null>(null);
+  const [txHash, setTxHash] = useState("");
+  const [txStatus, setTxStatus] = useState<string | null>(null);
   const [risk, setRisk] = useState<"balanced" | "aggressive">("balanced");
   const [platform, setPlatform] = useState<"bstock" | "ondo">("bstock");
   const [tab, setTab] = useState(9);
@@ -146,6 +180,7 @@ export function App() {
     setQuotes(marketData.quotes);
     setMarketMode(marketData.mode);
     setCacheStatus(marketData.cacheStatus ?? "live");
+    getJson<Evidence>("/api/evidence").then(setEvidence).catch(() => undefined);
     setLoading(false);
   }
 
@@ -199,6 +234,17 @@ export function App() {
     });
     setPreview(data);
     setSignatureResult(null);
+    getJson<Evidence>("/api/evidence").then(setEvidence).catch(() => undefined);
+  }
+
+  async function verifyTxHash() {
+    if (!txHash.trim()) return;
+    try {
+      const status = await getJson<unknown>(`/api/tx/status/${txHash.trim()}`);
+      setTxStatus(JSON.stringify(status, null, 2));
+    } catch (error) {
+      setTxStatus(error instanceof Error ? error.message : "Unable to verify transaction.");
+    }
   }
 
   async function signTransaction(label: "approval" | "swap", tx?: PreparedTx | null) {
@@ -286,6 +332,7 @@ export function App() {
           <div>
             <strong>Execution boundary</strong>
             <span>Quote, approval calldata, swap calldata and simulation are live. User signs only; CircuitStock never broadcasts.</span>
+            <small>BSC mainnet only. Small demo amounts. Not financial advice. Restricted jurisdictions must not use this flow.</small>
           </div>
           <button onClick={connectWallet}>
             <Link2 size={18} />
@@ -407,8 +454,12 @@ export function App() {
                 {[
                   ["Live RWA data", marketMode === "live"],
                   ["Quote", preview?.checklist?.quote],
+                  ["Wallet checked", preview?.checklist?.walletBalances],
+                  ["Official approval API", preview?.checklist?.officialApproval],
                   ["Approval calldata", preview?.checklist?.approvalCalldata],
                   ["Swap calldata", preview?.checklist?.swapBuilt],
+                  ["Gas estimated", preview?.checklist?.gasEstimated],
+                  ["Research loaded", preview?.checklist?.researchLoaded],
                   ["Simulation", preview?.checklist?.simulated],
                   ["User signature only", preview?.checklist?.requiresUserSignature],
                   ["No broadcast", preview?.checklist?.broadcasted === false]
@@ -429,6 +480,25 @@ export function App() {
                 </div>
               )}
 
+              <div className="quoteCards">
+                <div>
+                  <span>24h volatility</span>
+                  <strong>{preview?.research?.candleSummary?.volatilityBps ?? "--"} bps</strong>
+                </div>
+                <div>
+                  <span>24h momentum</span>
+                  <strong>{preview?.research?.candleSummary?.changeBps ?? "--"} bps</strong>
+                </div>
+                <div>
+                  <span>Gas APIs</span>
+                  <strong>{preview?.gasPrice || preview?.gasLimit ? "checked" : "--"}</strong>
+                </div>
+                <div>
+                  <span>Wallet APIs</span>
+                  <strong>{preview?.walletSnapshot?.balances ? "checked" : walletAddress ? "unavailable" : "connect wallet"}</strong>
+                </div>
+              </div>
+
               <div className="signGrid">
                 <button className="signButton" onClick={() => signTransaction("approval", preview?.approvalTx)} disabled={!preview?.approvalTx}>
                   <FileSignature size={18} />
@@ -441,16 +511,49 @@ export function App() {
               </div>
 
               {signatureResult && <pre className="quotePreview">{signatureResult}</pre>}
+              {preview?.apiWarnings?.length ? (
+                <div className="warningList">
+                  {preview.apiWarnings.slice(0, 4).map((warning, index) => (
+                    <span key={`${warning.kind}-${index}`}>{warning.kind ?? "api_warning"}: {warning.message ?? warning.status ?? "review"}</span>
+                  ))}
+                </div>
+              ) : null}
               {preview?.error && <p className="empty">{preview.error}</p>}
             </section>
           </div>
         </section>
 
         <section className="apiEvidence">
-          <div><strong>RWA Data API</strong><span>/api/v1/dex/market/rwa/tokens</span></div>
-          <div><strong>Trading API</strong><span>/api/v1/dex/aggregator/quote + /swap</span></div>
-          <div><strong>Transaction API</strong><span>/api/v1/dex/pre-transaction/simulate</span></div>
+          <div><strong>RWA Data API</strong><span>/rwa/tokens + /underlying-profile + /underlying-market</span></div>
+          <div><strong>Market API</strong><span>/market/candles volatility and momentum</span></div>
+          <div><strong>Trading API</strong><span>/quote + /approve-transaction + /swap + /history</span></div>
+          <div><strong>Transaction API</strong><span>/gas-price + /gas-limit + /simulate</span></div>
+          <div><strong>Wallet API</strong><span>/balance + /portfolio before trade</span></div>
           <div><strong>Agent endpoint</strong><span>/api/agent/recommend/compact</span></div>
+        </section>
+
+        <section className="opsPanel">
+          <div>
+            <p className="eyebrow">API evidence</p>
+            <h2>Last successful calls</h2>
+            <div className="evidenceRows">
+              {evidence?.recentCalls?.slice(0, 8).map((call) => (
+                <span key={`${call.endpoint}-${call.at}`}>
+                  <strong>{call.module}</strong>
+                  {call.status} · {call.latencyMs} ms · {call.endpoint}
+                </span>
+              )) ?? <span>No calls yet.</span>}
+            </div>
+          </div>
+          <div>
+            <p className="eyebrow">Post-trade verifier</p>
+            <h2>Paste tx hash</h2>
+            <div className="txVerifier">
+              <input value={txHash} onChange={(event) => setTxHash(event.target.value)} placeholder="0x..." />
+              <button onClick={verifyTxHash}>Verify</button>
+            </div>
+            {txStatus && <pre className="quotePreview">{txStatus}</pre>}
+          </div>
         </section>
       </section>
     </main>
