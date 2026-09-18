@@ -17,15 +17,18 @@ CircuitStock Agent scans BSC tokenized stocks for on-chain/reference spreads, pr
 2. Confirm market data is `live` or `cached`.
 3. Pick a risk profile and max trade amount.
 4. Click **Prepare execution** on an agent recommendation.
-5. Review quote ID, vendor, price impact, approval calldata, swap calldata, simulation status, and no-broadcast checklist.
-6. Optionally connect a wallet and try **Sign approval only** / **Sign swap only**.
+5. Review quote ID, vendor, price impact, wallet checks, official approval, gas checks, approval calldata, swap calldata, simulation status, and no-broadcast checklist.
+6. Open **Agent Studio**, run the natural-language prompt, and verify it fills the same execution preview.
+7. Optionally connect a wallet and try **Sign/copy approval** / **Sign/copy swap**.
 
 ## APIs Used
 
-- RWA Data API: tokenized stock prices and reference prices.
-- Trading API: aggregated quote and swap calldata.
-- Transaction API: off-chain transaction simulation.
-- Agent endpoint: compact recommendation for Agentic Wallet / BNB Agent Studio.
+- RWA Data API: platforms, search, tokenized stock prices, reference prices, company profile and underlying market data.
+- Market API: candle signal layer for volatility and momentum.
+- Trading API: aggregated quote, official approval transaction, swap calldata and history lookup.
+- Transaction API: gas price, gas limit and off-chain transaction simulation.
+- Wallet API: balances and portfolio checks before user signing.
+- Agent endpoints: compact recommendation and natural-language interpretation for Agentic Wallet / BNB Agent Studio.
 
 ## Safety Boundary
 

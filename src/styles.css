@@ -637,6 +637,37 @@ h2 {
   margin-top: 14px;
 }
 
+.agentPrompt {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 8px;
+}
+
+.agentPrompt input {
+  min-width: 0;
+  height: 40px;
+  border: 1px solid #2b3139;
+  border-radius: 8px;
+  padding: 0 10px;
+  color: #eaecef;
+  background: #0b0e11;
+  outline: none;
+}
+
+.agentPrompt input:focus {
+  border-color: #f0b90b;
+}
+
+.agentPrompt button {
+  border: 0;
+  border-radius: 8px;
+  padding: 0 14px;
+  color: #0b0e11;
+  background: #f0b90b;
+  cursor: pointer;
+  font-weight: 850;
+}
+
 .txVerifier input {
   min-width: 0;
   height: 40px;
@@ -725,7 +756,8 @@ h2 {
   .signGrid,
   .quoteCards,
   .checklist,
-  .txVerifier {
+  .txVerifier,
+  .agentPrompt {
     grid-template-columns: 1fr;
   }
 }

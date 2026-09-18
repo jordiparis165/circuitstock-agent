@@ -263,6 +263,24 @@ export async function getMarketCandles(tokenAddress: string): Promise<BinanceCal
   );
 }
 
+export async function getRwaPlatforms(): Promise<BinanceCallResult> {
+  return toResult(config.rwaPlatformsPath, () =>
+    callBinanceGet(config.rwaPlatformsPath, {
+      binanceChainId: 56
+    })
+  );
+}
+
+export async function searchRwaToken(keyword: string): Promise<BinanceCallResult> {
+  return toResult(config.rwaSearchPath, () =>
+    callBinanceGet(config.rwaSearchPath, {
+      binanceChainId: 56,
+      keyword,
+      query: keyword
+    })
+  );
+}
+
 export async function getRwaUnderlyingProfile(underlyingTicker: string): Promise<BinanceCallResult> {
   return toResult(config.rwaUnderlyingProfilePath, () =>
     callBinanceGet(config.rwaUnderlyingProfilePath, {

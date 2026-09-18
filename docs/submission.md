@@ -36,10 +36,12 @@ http://localhost:5173
 - API key remains server-side.
 - `GET /api/market` returns live RWA data.
 - `GET /api/evidence` returns sanitized API modules, endpoints, status, and latency.
+- `GET /api/rwa/platforms` and `GET /api/rwa/search?q=TSLA` prove platform discovery and ticker resolution.
 - `GET /api/research/:symbol` returns candles, volatility, underlying profile, and underlying market context.
 - `GET /api/wallet/:address` checks balances and portfolio state before execution.
 - `POST /api/execution/prepare` returns quote, official approval check, approval transaction payload, swap payload, gas checks, wallet snapshot, research context, and simulation result.
 - `POST /api/agent/recommend/compact` returns the concise payload intended for Wallet Skills / Agent Studio.
+- `POST /api/agent/interpret` accepts plain-language stock-trading prompts and returns research or a no-broadcast execution preview.
 - No automatic broadcast exists in the app.
 - `POST /api/agent/recommend` exposes the same logic for agent runtimes.
 
@@ -74,6 +76,19 @@ Input:
 
 Output: quote, selected route, official approval evidence, swap calldata, gas checks, wallet snapshot, simulation result, and a no-broadcast checklist.
 
+### `plain_language_stock_prompt`
+
+Input:
+
+```json
+{
+  "prompt": "Quote only: buy $10 of TSLA tokenized stock",
+  "walletAddress": "0x..."
+}
+```
+
+Output: parsed intent, RWA search/profile/market data, optional prepared execution, and a plain-language summary.
+
 ## Deployment
 
 - API target: Render web service using `render.yaml`.
@@ -88,3 +103,4 @@ Output: quote, selected route, official approval evidence, swap calldata, gas ch
 - Record a demo video under four minutes from `docs/demo-script.md`.
 - Add desktop and mobile screenshots in `screenshots/`.
 - Rotate Binance Web3 credentials after the event.
+- See `docs/agent-studio-x402.md` for the ERC-8004 / ERC-8183 / x402 packaging plan.

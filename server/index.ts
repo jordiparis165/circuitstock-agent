@@ -12,9 +12,11 @@ import {
   getGasPrice,
   getMarketCandles,
   getPortfolioOverview,
+  getRwaPlatforms,
   getRwaUnderlyingMarket,
   getRwaUnderlyingProfile,
   getWalletBalances,
+  searchRwaToken,
   simulateEvmTransaction
 } from "./binanceWeb3";
 import { config } from "./env";
@@ -294,6 +296,21 @@ function normalizePlatforms(input: unknown): string[] {
 function normalizeTabs(input: unknown): number[] {
   if (!Array.isArray(input) || input.length === 0) return [9, 4, 11];
   return input.map(Number).filter((tab) => Number.isInteger(tab) && tab > 0);
+}
+
+function parsePlainLanguageIntent(text: string) {
+  const normalized = text.trim();
+  const upper = normalized.toUpperCase();
+  const amountMatch = normalized.match(/(?:\$|USD|USDT|USDC)?\s*(\d+(?:\.\d+)?)/i);
+  const amountUsd = amountMatch ? Math.min(100, Math.max(1, Number(amountMatch[1]))) : 10;
+  const side = /\b(sell|trim|reduce|exit)\b/i.test(normalized) ? "sell" : "buy";
+  const quoteOnly = /\b(quote|estimate|how much|preview|dry[- ]?run)\b/i.test(normalized);
+  const researchOnly = /\b(research|price|status|profile|available|tradable|trading|list)\b/i.test(normalized) && !/\b(buy|sell|swap)\b/i.test(normalized);
+  const ticker =
+    (upper.match(/\b[A-Z]{2,5}B\b/)?.[0] ??
+      upper.match(/\b(AAPL|MSFT|NVDA|TSLA|IBM|QCOM|SPY|QQQ|NOK|TSM|GOOG|META|AMZN)\b/)?.[0] ??
+      "TSLA") + (upper.match(/\b[A-Z]{2,5}B\b/) ? "" : "B");
+  return { text: normalized, symbol: ticker, side: side as "buy" | "sell", amountUsd, quoteOnly, researchOnly };
 }
 
 function pickQuote(data: unknown): Record<string, unknown> | null {
@@ -731,6 +748,19 @@ app.get("/api/rwa/prices", async (_req, res) => {
   }
 });
 
+app.get("/api/rwa/platforms", async (_req, res) => {
+  res.json(await measured("RWA Data API", config.rwaPlatformsPath, "issuance platforms", () => getRwaPlatforms()));
+});
+
+app.get("/api/rwa/search", async (req, res) => {
+  const keyword = String(req.query.q ?? req.query.keyword ?? "");
+  if (!keyword.trim()) {
+    res.status(400).json({ ok: false, error: "q is required." });
+    return;
+  }
+  res.json(await measured("RWA Data API", config.rwaSearchPath, keyword, () => searchRwaToken(keyword)));
+});
+
 app.get("/api/research/:symbol", async (req, res) => {
   const token = await getTokenBySymbol(String(req.params.symbol ?? ""));
   if (!token) {
@@ -804,6 +834,8 @@ app.get("/api/evidence", (_req, res) => {
     ],
     endpoints: {
       rwaTokens: config.rwaTokensPath,
+      rwaPlatforms: config.rwaPlatformsPath,
+      rwaSearch: config.rwaSearchPath,
       rwaProfile: config.rwaUnderlyingProfilePath,
       marketCandles: config.marketCandlesPath,
       quote: config.quotePath,
@@ -815,6 +847,47 @@ app.get("/api/evidence", (_req, res) => {
       walletBalances: config.walletAllBalancesPath
     },
     recentCalls: apiEvidence
+  });
+});
+
+app.post("/api/agent/interpret", async (req, res) => {
+  const prompt = String(req.body?.prompt ?? "");
+  const walletAddress = req.body?.walletAddress ? String(req.body.walletAddress) : undefined;
+  if (!prompt.trim()) {
+    res.status(400).json({ ok: false, error: "prompt is required." });
+    return;
+  }
+
+  const intent = parsePlainLanguageIntent(prompt);
+  const token = await getTokenBySymbol(intent.symbol);
+  const search = await measured("RWA Data API", config.rwaSearchPath, intent.symbol, () => searchRwaToken(intent.symbol));
+  const research = token
+    ? {
+        token,
+        profile: token.underlyingTicker
+          ? await measured("RWA Data API", config.rwaUnderlyingProfilePath, token.underlyingTicker, () =>
+              getRwaUnderlyingProfile(token.underlyingTicker!)
+            )
+          : null,
+        market: token.underlyingTicker
+          ? await measured("RWA Data API", config.rwaUnderlyingMarketPath, token.underlyingTicker, () =>
+              getRwaUnderlyingMarket(token.underlyingTicker!)
+            )
+          : null
+      }
+    : null;
+  const execution = intent.researchOnly ? null : await prepareExecution(intent.symbol, intent.side, intent.amountUsd, walletAddress);
+
+  res.json({
+    ok: true,
+    mode: "plain-language-agent",
+    intent,
+    search,
+    research,
+    execution,
+    spokenSummary: intent.researchOnly
+      ? `${intent.symbol} resolved for research. Review trading status and underlying profile before any trade.`
+      : `${intent.side.toUpperCase()} ${intent.symbol} preview prepared for $${intent.amountUsd}. No broadcast performed; user signature is required.`
   });
 });
 

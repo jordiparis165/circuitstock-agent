@@ -12,6 +12,16 @@
       "name": "prepare_rebalance",
       "method": "POST",
       "path": "/api/execution/prepare"
+    },
+    {
+      "name": "plain_language_stock_prompt",
+      "method": "POST",
+      "path": "/api/agent/interpret"
+    },
+    {
+      "name": "resolve_tokenized_stock",
+      "method": "GET",
+      "path": "/api/rwa/search"
     }
   ],
   "safety": {

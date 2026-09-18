@@ -5,6 +5,7 @@
 CircuitStock Agent integrates Binance Web3 API modules for the BNB Hack: Tokenized Stocks Edition:
 
 - RWA Data API for tokenized stock lists, reference prices, on-chain prices, market status, and liquidity.
+- RWA Data API search/platform/profile calls for ticker resolution and issuer context.
 - Market API for candle-derived volatility and momentum context.
 - Trading API for cross-DEX quote, official approval transaction, swap calldata construction, and transaction status lookup.
 - Transaction API for gas price, gas limit, and pre-trade simulation.
@@ -24,6 +25,8 @@ The working flow is: scan RWA tokens, score opportunities, quote a small USDC tr
 
 - `GET /api/v1/dex/market/rwa/tokens`
 - `GET /api/v1/dex/market/rwa/price`
+- `GET /api/v1/dex/market/rwa/platforms`
+- `GET /api/v1/dex/market/rwa/search`
 - `GET /api/v1/dex/market/rwa/underlying-profile`
 - `GET /api/v1/dex/market/rwa/underlying-market`
 - `GET /api/v1/dex/market/candles`
@@ -46,6 +49,7 @@ The working flow is: scan RWA tokens, score opportunities, quote a small USDC tr
 - During local testing, `POST /api/execution/prepare` successfully returned a quote, swap calldata and simulation. The simulation correctly caught `BEP20: transfer amount exceeds allowance`, which the UI now translates into an approval-first action.
 - Some supporting endpoints can fail independently of the main quote/swap path depending on wallet state, token support, or parameter shape. CircuitStock records these as non-blocking `apiWarnings` and surfaces them in `/api/evidence`.
 - Candlestick payload shapes are not assumed rigidly. CircuitStock extracts close/price fields defensively and uses them only as a signal layer, not as the source of execution truth.
+- The official stock-trading use case requires resolving tickers/company names before trading; CircuitStock added `/api/agent/interpret` so an agent can handle prompts like "quote TSLA" instead of requiring a UI symbol.
 
 ## Tokenized Stock Specifics
 
@@ -65,6 +69,8 @@ The working flow is: scan RWA tokens, score opportunities, quote a small USDC tr
 - Agent Studio is a natural fit for persistent monitoring, especially if the runtime calls `/api/agent/recommend` on a schedule.
 - A first-class example for RWA agent workflows would help future builders move faster.
 - The compact endpoint now returns whether wallet checks, gas checks, and research context were loaded, so an Agent Studio runtime can decide whether to ask the user for more information before requesting a signature.
+- Wallet Skills are represented as `scan_tokenized_stock_spreads`, `prepare_rebalance`, and a natural-language stock prompt flow. This mirrors the documented Agentic Wallet stock-trading steps: resolve, check status, quote, then require confirmation.
+- BNB Agent Studio packaging is documented in `docs/agent-studio-x402.md`: ERC-8004 identity, ERC-8183 task interface, and x402/b402 payment-gated monitoring as the post-hackathon extension.
 
 ## Suggested Improvements
 

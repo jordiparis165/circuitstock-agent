@@ -53,6 +53,8 @@ export const config = {
   gasLimitPath: pickEnv(["BINANCE_WEB3_GAS_LIMIT_PATH"]) ?? "/api/v1/dex/pre-transaction/gas-limit",
   rwaTokensPath: pickEnv(["BINANCE_WEB3_RWA_TOKENS_PATH"]) ?? "/api/v1/dex/market/rwa/tokens",
   rwaPricePath: pickEnv(["BINANCE_WEB3_RWA_PRICE_PATH"]) ?? "/api/v1/dex/market/rwa/price",
+  rwaPlatformsPath: pickEnv(["BINANCE_WEB3_RWA_PLATFORMS_PATH"]) ?? "/api/v1/dex/market/rwa/platforms",
+  rwaSearchPath: pickEnv(["BINANCE_WEB3_RWA_SEARCH_PATH"]) ?? "/api/v1/dex/market/rwa/search",
   rwaUnderlyingProfilePath:
     pickEnv(["BINANCE_WEB3_RWA_UNDERLYING_PROFILE_PATH"]) ?? "/api/v1/dex/market/rwa/underlying-profile",
   rwaUnderlyingMarketPath:

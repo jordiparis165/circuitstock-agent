@@ -32,6 +32,8 @@ Status: working local product, private repo for now, ready for Render/Vercel dep
   - Pre-transaction simulation.
   - User signature only, no broadcast.
 - Compact agent endpoint for Wallet Skills / BNB Agent Studio.
+- Plain-language stock prompt endpoint for Agentic Wallet style interactions.
+- RWA platform discovery and ticker search.
 - Skill files in `skills/circuitstock/`.
 - Screenshots in `screenshots/`.
 - Submission docs in `docs/`.
@@ -48,6 +50,7 @@ Status: working local product, private repo for now, ready for Render/Vercel dep
 - `docs/demo-script.md` - video script under four minutes.
 - `docs/submission.md` and `SUBMISSION.md` - final submission notes.
 - `docs/team-onboarding.md` - teammate setup.
+- `docs/agent-studio-x402.md` - BNB Agent Studio, ERC-8004/ERC-8183, and x402 packaging plan.
 - `skills/circuitstock/SKILL.md` and `skills/circuitstock/skill.json` - Wallet Skill/agent shape.
 - `render.yaml` - Render API deployment config.
 - `vercel.json` - Vercel frontend config.
@@ -69,6 +72,8 @@ BINANCE_WEB3_GAS_PRICE_PATH=/api/v1/dex/pre-transaction/gas-price
 BINANCE_WEB3_GAS_LIMIT_PATH=/api/v1/dex/pre-transaction/gas-limit
 BINANCE_WEB3_RWA_TOKENS_PATH=/api/v1/dex/market/rwa/tokens
 BINANCE_WEB3_RWA_PRICE_PATH=/api/v1/dex/market/rwa/price
+BINANCE_WEB3_RWA_PLATFORMS_PATH=/api/v1/dex/market/rwa/platforms
+BINANCE_WEB3_RWA_SEARCH_PATH=/api/v1/dex/market/rwa/search
 BINANCE_WEB3_RWA_UNDERLYING_PROFILE_PATH=/api/v1/dex/market/rwa/underlying-profile
 BINANCE_WEB3_RWA_UNDERLYING_MARKET_PATH=/api/v1/dex/market/rwa/underlying-market
 BINANCE_WEB3_MARKET_CANDLES_PATH=/api/v1/dex/market/candles
@@ -91,6 +96,7 @@ Official Binance Web3 API paths used by the MVP:
 
 - RWA token list: `GET /api/v1/dex/market/rwa/tokens`
 - RWA prices: `GET /api/v1/dex/market/rwa/price`
+- RWA platforms/search: `GET /api/v1/dex/market/rwa/platforms`, `GET /api/v1/dex/market/rwa/search`
 - RWA profile and market context: `GET /api/v1/dex/market/rwa/underlying-profile`, `GET /api/v1/dex/market/rwa/underlying-market`
 - Market candles: `GET /api/v1/dex/market/candles`
 - Aggregated quote: `GET /api/v1/dex/aggregator/quote`
@@ -122,6 +128,7 @@ Useful API checks:
 curl http://localhost:8787/api/health
 curl http://localhost:8787/api/evidence
 curl http://localhost:8787/api/research/TSLAB
+curl "http://localhost:8787/api/rwa/search?q=TSLA"
 ```
 
 PowerShell prepare check:
@@ -137,13 +144,25 @@ $body = @{
 Invoke-RestMethod -Uri http://localhost:8787/api/execution/prepare -Method Post -ContentType 'application/json' -Body $body
 ```
 
+PowerShell natural-language agent check:
+
+```powershell
+$body = @{
+  prompt='Quote only: buy $10 of TSLA tokenized stock'
+  walletAddress='0x000000000000000000000000000000000000dead'
+} | ConvertTo-Json
+
+Invoke-RestMethod -Uri http://localhost:8787/api/agent/interpret -Method Post -ContentType 'application/json' -Body $body
+```
+
 ## Judge Flow
 
 1. Open the dashboard and confirm `mode: live` via the opportunity scanner.
 2. Connect an injected wallet and switch to BNB Smart Chain.
 3. Click **Prepare execution** on an agent action.
 4. Review quote, official approval evidence, wallet checks, gas checks, research context, approval calldata, swap calldata, and simulation result.
-5. Optionally try **Sign approval only** and **Sign swap only**. The app never broadcasts automatically.
+5. Open **Agent Studio** and run the prompt demo.
+6. Optionally try **Sign/copy approval** and **Sign/copy swap**. The app never broadcasts automatically.
 
 ## Local API
 
@@ -151,8 +170,10 @@ Invoke-RestMethod -Uri http://localhost:8787/api/execution/prepare -Method Post 
 - `POST /api/strategy` - ranked live actions for the UI.
 - `POST /api/agent/recommend` - agent-friendly recommendation payload for Wallet Skills / BNB Agent Studio.
 - `POST /api/agent/recommend/compact` - compact agent payload for skills and agent runtimes.
+- `POST /api/agent/interpret` - plain-language tokenized stock prompt parser and quote/research flow.
 - `POST /api/execution/prepare` - quote, official approval, wallet snapshot, research, gas checks, swap build, simulation, and unsigned tx payloads.
 - `GET /api/evidence` - sanitized evidence of Binance modules, endpoints, status and latency.
+- `GET /api/rwa/platforms`, `GET /api/rwa/search?q=TSLA` - platform discovery and ticker resolution.
 - `GET /api/research/:symbol` - candles, volatility, underlying profile and market context.
 - `GET /api/wallet/:address` - balance and portfolio checks.
 - `GET /api/tx/status/:hash` - post-signature transaction status lookup if a user broadcasts manually.

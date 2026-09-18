@@ -137,6 +137,19 @@ type Evidence = {
   }>;
 };
 
+type AgentInterpretation = {
+  ok: boolean;
+  spokenSummary?: string;
+  intent?: {
+    symbol: string;
+    side: string;
+    amountUsd: number;
+    quoteOnly: boolean;
+    researchOnly: boolean;
+  };
+  execution?: ExecutionPreview | null;
+};
+
 type ViewId = "monitor" | "wallet" | "agent" | "risk";
 
 const API_BASE = (import.meta.env.VITE_API_BASE_URL ?? "").replace(/\/$/, "");
@@ -172,6 +185,8 @@ export function App() {
   const [maxTradeUsd, setMaxTradeUsd] = useState(10);
   const [loading, setLoading] = useState(true);
   const [activeView, setActiveView] = useState<ViewId>("monitor");
+  const [agentPrompt, setAgentPrompt] = useState("Quote only: buy $10 of TSLA tokenized stock");
+  const [agentReply, setAgentReply] = useState<AgentInterpretation | null>(null);
 
   async function refresh() {
     setLoading(true);
@@ -270,6 +285,17 @@ export function App() {
         `${label} raw signing is unavailable in this wallet: ${reason}\n\nNo broadcast was performed. The transaction payload was copied when clipboard access was available:\n${payload}`
       );
     }
+  }
+
+  async function interpretAgentPrompt() {
+    const data = await getJson<AgentInterpretation>("/api/agent/interpret", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ prompt: agentPrompt, walletAddress })
+    });
+    setAgentReply(data);
+    if (data.execution) setPreview(data.execution);
+    getJson<Evidence>("/api/evidence").then(setEvidence).catch(() => undefined);
   }
 
   useEffect(() => {
@@ -388,6 +414,18 @@ export function App() {
                   <div><strong>Monitoring loop</strong><span>Schedule `/api/agent/recommend` and escalate only when spread, liquidity and risk rules pass.</span></div>
                   <div><strong>Evidence trail</strong><span>`/api/evidence` shows Binance modules, endpoints, status and latency for judge review.</span></div>
                 </div>
+                <div className="agentPrompt">
+                  <input value={agentPrompt} onChange={(event) => setAgentPrompt(event.target.value)} />
+                  <button onClick={interpretAgentPrompt}>Run prompt</button>
+                </div>
+                {agentReply && (
+                  <div className="statusBox">
+                    <strong>{agentReply.spokenSummary}</strong>
+                    <span>
+                      Intent: {agentReply.intent?.side} {agentReply.intent?.symbol} · ${agentReply.intent?.amountUsd} · no broadcast
+                    </span>
+                  </div>
+                )}
               </>
             )}
             {activeView === "risk" && (
@@ -421,6 +459,7 @@ export function App() {
               <option value={9}>Magnificent 7</option>
               <option value={4}>AI Chips</option>
               <option value={11}>ETF</option>
+              <option value={12}>Buffett Portfolio</option>
             </select>
           </label>
           <label>
@@ -591,6 +630,7 @@ export function App() {
 
         <section className="apiEvidence">
           <div><strong>RWA Data API</strong><span>/rwa/tokens + /underlying-profile + /underlying-market</span></div>
+          <div><strong>RWA Search</strong><span>/rwa/platforms + /rwa/search ticker resolution</span></div>
           <div><strong>Market API</strong><span>/market/candles volatility and momentum</span></div>
           <div><strong>Trading API</strong><span>/quote + /approve-transaction + /swap + /history</span></div>
           <div><strong>Transaction API</strong><span>/gas-price + /gas-limit + /simulate</span></div>
