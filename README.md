@@ -36,6 +36,8 @@ NVDAB_ADDRESS=
 
 The app ships with default public addresses for BSC USDC and TSLAB so the quote flow can be demoed earlier. Override them in `.env` after verifying the final competition asset list.
 
+For teammate setup, see `docs/team-onboarding.md`. Keep `.env` local and share API credentials through a secure channel, not git history.
+
 Official Binance Web3 API paths used by the MVP:
 
 - RWA token list: `GET /api/v1/dex/market/rwa/tokens`
