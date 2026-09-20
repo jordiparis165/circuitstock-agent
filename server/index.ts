@@ -20,9 +20,21 @@ import {
   simulateEvmTransaction
 } from "./binanceWeb3";
 import { config } from "./env";
+import { setKilled, startWatcher, tick, watcherStatus, type WatcherDeps } from "./watcher";
 import { getToken, quoteTokens, tokenRegistry } from "./tokenRegistry";
 
 const app = express();
+
+const DEFAULT_SLIPPAGE_BPS = 50;
+const MAX_SLIPPAGE_BPS = 1000;
+
+/** Slippage in bps: request value, else SLIPPAGE_BPS env, else 50. Clamped to 1..1000. */
+function resolveSlippageBps(requested?: unknown): number {
+  const value = Number(requested ?? config.slippageBps ?? DEFAULT_SLIPPAGE_BPS);
+  if (!Number.isFinite(value) || value <= 0) return DEFAULT_SLIPPAGE_BPS;
+  return Math.min(MAX_SLIPPAGE_BPS, Math.round(value));
+}
+
 const port = Number(process.env.PORT ?? 8787);
 const rwaCache = new Map<string, { expiresAt: number; tokens: RwaToken[] }>();
 const apiEvidence: ApiEvidence[] = [];
@@ -546,7 +558,13 @@ function summarizeCandles(candles: unknown) {
   };
 }
 
-async function prepareExecution(symbol: string, side: "buy" | "sell", amountUsd: number, walletAddress?: string) {
+async function prepareExecution(
+  symbol: string,
+  side: "buy" | "sell",
+  amountUsd: number,
+  walletAddress?: string,
+  slippageBps = resolveSlippageBps()
+) {
   const token = await getTokenBySymbol(symbol);
   if (!token) {
     return { ok: false, mode: "unknown_token", error: `Unknown token symbol: ${symbol}` };
@@ -558,7 +576,7 @@ async function prepareExecution(symbol: string, side: "buy" | "sell", amountUsd:
   const amount = BigInt(Math.round(amountUsd * 10 ** quoteTokens.usdc.decimals)).toString();
   const fromTokenAddress = side === "buy" ? quoteTokens.usdc.address : token.address;
   const toTokenAddress = side === "buy" ? token.address : quoteTokens.usdc.address;
-  const quote = await getBinanceQuote({ fromTokenAddress, toTokenAddress, amount, walletAddress, slippageBps: 50 });
+  const quote = await getBinanceQuote({ fromTokenAddress, toTokenAddress, amount, walletAddress, slippageBps });
   const selectedQuote = quote.ok ? pickQuote(quote.data) : null;
   const quoteId = typeof selectedQuote?.quoteId === "string" ? selectedQuote.quoteId : null;
 
@@ -624,7 +642,7 @@ async function prepareExecution(symbol: string, side: "buy" | "sell", amountUsd:
     officialApproval = await measured("Trading API", config.approvePath, "official approve transaction", () =>
       getBinanceApproveTransaction({ tokenAddress: fromTokenAddress, amount, walletAddress, vendor })
     );
-    swap = await getBinanceSwap({ fromTokenAddress, toTokenAddress, amount, walletAddress, slippageBps: 50, quoteId });
+    swap = await getBinanceSwap({ fromTokenAddress, toTokenAddress, amount, walletAddress, slippageBps, quoteId });
     evmTx = swap.ok ? pickEvmTx(swap.data) : null;
     const approval = swap.ok ? parseSignatureData(swap.data, walletAddress) : { approvalTx: null, raw: [] };
     approvalTx = approval.approvalTx;
@@ -1012,16 +1030,17 @@ app.post("/api/quote", async (req, res) => {
     return;
   }
 
+  const slippageBps = resolveSlippageBps(req.body?.slippageBps);
   const amount = BigInt(Math.round(amountUsd * 10 ** quoteTokens.usdc.decimals)).toString();
   const quote = await getBinanceQuote({
     fromTokenAddress: side === "buy" ? quoteTokens.usdc.address : token.address,
     toTokenAddress: side === "buy" ? token.address : quoteTokens.usdc.address,
     amount,
     walletAddress,
-    slippageBps: 50
+    slippageBps
   });
 
-  res.json({ ...quote, request: { symbol, side, amountUsd, walletAddress } });
+  res.json({ ...quote, request: { symbol, side, amountUsd, walletAddress, slippageBps } });
 });
 
 app.post("/api/swap", async (req, res) => {
@@ -1037,6 +1056,7 @@ app.post("/api/swap", async (req, res) => {
     return;
   }
 
+  const slippageBps = resolveSlippageBps(req.body?.slippageBps);
   const amount = BigInt(Math.round(amountUsd * 10 ** quoteTokens.usdc.decimals)).toString();
   const swap = await getBinanceSwap({
     fromTokenAddress: side === "buy" ? quoteTokens.usdc.address : token.address,
@@ -1044,7 +1064,7 @@ app.post("/api/swap", async (req, res) => {
     amount,
     walletAddress,
     quoteId,
-    slippageBps: 50
+    slippageBps
   });
   const evmTx = swap.ok ? pickEvmTx(swap.data) : null;
   res.json({ ...swap, evmTx: evmTx ? { ...evmTx, from: evmTx.from ?? walletAddress } : null });
@@ -1064,7 +1084,7 @@ app.post("/api/execution/prepare", async (req, res) => {
   const side = req.body?.side === "sell" ? "sell" : "buy";
   const amountUsd = Number(req.body?.amountUsd ?? 10);
   const walletAddress = req.body?.walletAddress ? String(req.body.walletAddress) : undefined;
-  res.json(await prepareExecution(symbol, side, amountUsd, walletAddress));
+  res.json(await prepareExecution(symbol, side, amountUsd, walletAddress, resolveSlippageBps(req.body?.slippageBps)));
 });
 
 app.post("/api/agent/recommend", async (req, res) => {
@@ -1218,6 +1238,34 @@ app.post("/api/strategy", async (req, res) => {
   }
 });
 
+const watcherDeps: WatcherDeps = {
+  fetchOpportunities: async () => {
+    const { tokens } = await fetchRwaTokens(["bstock", "ondo"], []);
+    return tokensToOpportunities(tokens);
+  },
+  prepare: (symbol, side, amountUsd, walletAddress, slippageBps) =>
+    prepareExecution(symbol, side, amountUsd, walletAddress, resolveSlippageBps(slippageBps))
+};
+
+app.get("/api/watcher/status", (_req, res) => {
+  res.json(watcherStatus());
+});
+
+app.post("/api/watcher/kill", (_req, res) => {
+  setKilled(true);
+  res.json(watcherStatus());
+});
+
+app.post("/api/watcher/resume", (_req, res) => {
+  setKilled(false);
+  res.json(watcherStatus());
+});
+
+app.post("/api/watcher/tick", async (_req, res) => {
+  res.json({ decision: await tick(watcherDeps), status: watcherStatus() });
+});
+
 app.listen(port, () => {
   console.log(`CircuitStock API listening on http://localhost:${port}`);
+  startWatcher(watcherDeps);
 });

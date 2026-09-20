@@ -26,7 +26,7 @@ function readRawEnv(): RawEnv {
 
 const rawEnv = readRawEnv();
 
-function pickEnv(keys: string[]): string | undefined {
+export function pickEnv(keys: string[]): string | undefined {
   for (const key of keys) {
     const value = process.env[key] ?? rawEnv[key];
     if (value && value.trim()) return value.trim();
@@ -64,6 +64,7 @@ export const config = {
     pickEnv(["BINANCE_WEB3_WALLET_ALL_BALANCES_PATH"]) ?? "/api/v1/dex/balance/all-token-balances-by-address",
   walletPortfolioOverviewPath:
     pickEnv(["BINANCE_WEB3_WALLET_PORTFOLIO_OVERVIEW_PATH"]) ?? "/api/v1/dex/market/portfolio/overview",
+  slippageBps: Number(pickEnv(["SLIPPAGE_BPS"])) || undefined,
   bscRpcUrl: pickEnv(["BSC_RPC_URL"]) ?? "https://bsc-dataseed.binance.org"
 };
 
