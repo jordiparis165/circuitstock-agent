@@ -20,6 +20,7 @@ import {
   simulateEvmTransaction
 } from "./binanceWeb3";
 import { runAiAgent } from "./aiAgent";
+import { walletReadiness } from "./bscRpc";
 import { config } from "./env";
 import { setKilled, startWatcher, tick, watcherStatus, type WatcherDeps } from "./watcher";
 import { getToken, quoteTokens, tokenRegistry } from "./tokenRegistry";
@@ -53,6 +54,7 @@ app.get("/", (_req, res) => {
     agent: "/api/agent/recommend/compact",
     aiAgent: "/api/ai/agent",
     watcher: "/api/watcher/status",
+    walletReadiness: "/api/wallet/readiness/:address",
     baskets: "/api/baskets",
     readiness: "/api/judge/readiness",
     smoke: "/api/judge/smoke",
@@ -624,6 +626,7 @@ function judgeReadiness() {
       { item: "Vercel frontend deployed", status: "ready" },
       { item: "Render API deployed", status: "ready" },
       { item: "Binance Web3 API key server-side", status: config.apiKey && config.apiSecret ? "ready" : "missing" },
+      { item: "BSC RPC wallet readiness checks", status: "ready" },
       { item: "RWA scan -> quote -> approval -> swap -> simulation flow", status: "ready" },
       { item: "No automatic broadcast", status: "ready" },
       { item: "Wallet Skills spec", status: "ready" },
@@ -973,6 +976,24 @@ app.get("/api/wallet/:address", async (req, res) => {
   });
 });
 
+app.get("/api/wallet/readiness/:address", async (req, res) => {
+  const address = String(req.params.address ?? "");
+  const spender = req.query.spender ? String(req.query.spender) : undefined;
+  if (!/^0x[a-fA-F0-9]{40}$/.test(address)) {
+    res.status(400).json({ ok: false, error: "Valid EVM address required." });
+    return;
+  }
+  if (spender && !/^0x[a-fA-F0-9]{40}$/.test(spender)) {
+    res.status(400).json({ ok: false, error: "Valid spender address required." });
+    return;
+  }
+  try {
+    res.json(await walletReadiness(address, spender));
+  } catch (error) {
+    res.status(500).json({ ok: false, error: (error as Error).message });
+  }
+});
+
 app.get("/api/tx/status/:hash", async (req, res) => {
   const txHash = String(req.params.hash ?? "");
   if (!/^0x[a-fA-F0-9]{64}$/.test(txHash)) {
@@ -992,6 +1013,7 @@ app.get("/api/evidence", (_req, res) => {
       "Trading API",
       "Transaction API",
       "Wallet API",
+      "BSC RPC wallet readiness",
       "Agent endpoint",
       "LLM AI agent",
       "b402 payment hook",
@@ -1012,6 +1034,7 @@ app.get("/api/evidence", (_req, res) => {
       gasPrice: config.gasPricePath,
       gasLimit: config.gasLimitPath,
       walletBalances: config.walletAllBalancesPath,
+      walletReadiness: "/api/wallet/readiness/:address",
       aiAgent: "/api/ai/agent",
       b402Manifest: "/api/b402/manifest",
       premiumSignal: "/api/premium/signal",
@@ -1047,6 +1070,16 @@ app.get("/api/judge/smoke", async (_req, res) => {
   }
   const watcher = watcherStatus();
   checks.push({ name: "watcher", ok: watcher.policy.mode === "dry-run", detail: { enabled: watcher.enabled, killed: watcher.killed } });
+  try {
+    const wallet = await walletReadiness("0x000000000000000000000000000000000000dEaD");
+    checks.push({
+      name: "wallet-readiness",
+      ok: wallet.checks.bscMainnet && wallet.checks.usdcContractCode,
+      detail: { chain: wallet.chain, blockNumber: wallet.blockNumber, noBroadcast: wallet.checks.noBroadcast }
+    });
+  } catch (error) {
+    checks.push({ name: "wallet-readiness", ok: false, detail: (error as Error).message });
+  }
   checks.push({ name: "b402", ok: true, detail: { manifest: "/api/b402/manifest", premiumSignal: "/api/premium/signal" } });
   checks.push({ name: "broadcast", ok: true, detail: "No backend route broadcasts transactions." });
 

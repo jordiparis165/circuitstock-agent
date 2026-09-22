@@ -226,6 +226,27 @@ type AiAgentResult = {
   error?: string;
 };
 
+type WalletReadiness = {
+  ok: boolean;
+  chain: string;
+  blockNumber: number;
+  wallet: string;
+  checks: {
+    bscMainnet: boolean;
+    usdcContractCode: boolean;
+    hasGas: boolean;
+    hasUsdc: boolean;
+    hasAllowance: boolean;
+    noBroadcast: boolean;
+  };
+  balances: {
+    bnb: string;
+    usdc: string;
+    usdcAllowance: string;
+  };
+  nextRequiredAction: string;
+};
+
 type ViewId = "monitor" | "wallet" | "agent" | "baskets" | "risk";
 
 const API_BASE = (import.meta.env.VITE_API_BASE_URL ?? "").replace(/\/$/, "");
@@ -273,6 +294,7 @@ export function App() {
   const [readiness, setReadiness] = useState<Readiness | null>(null);
   const [aiPrompt, setAiPrompt] = useState("Given the live scanner and risk rules, what should we do next?");
   const [aiAgent, setAiAgent] = useState<AiAgentResult | null>(null);
+  const [walletReadiness, setWalletReadiness] = useState<WalletReadiness | null>(null);
 
   async function refresh() {
     setLoading(true);
@@ -308,6 +330,7 @@ export function App() {
     const accounts = await window.ethereum.request<string[]>({ method: "eth_requestAccounts" });
     const account = accounts[0];
     setWalletAddress(account);
+    getJson<WalletReadiness>(`/api/wallet/readiness/${account}`).then(setWalletReadiness).catch(() => undefined);
 
     try {
       await window.ethereum.request({ method: "wallet_switchEthereumChain", params: [{ chainId: "0x38" }] });
@@ -431,6 +454,12 @@ export function App() {
     });
     setAiAgent(data);
     getJson<Evidence>("/api/evidence").then(setEvidence).catch(() => undefined);
+  }
+
+  async function checkWalletReadiness() {
+    if (!walletAddress) return;
+    const data = await getJson<WalletReadiness>(`/api/wallet/readiness/${walletAddress}`);
+    setWalletReadiness(data);
   }
 
   useEffect(() => {
@@ -567,6 +596,43 @@ export function App() {
                   <div><strong>scan_tokenized_stock_spreads</strong><span>Calls `/api/agent/recommend/compact` with risk, platform, tabs and max trade size.</span></div>
                   <div><strong>prepare_rebalance</strong><span>Calls `/api/execution/prepare` and returns quote, approval, gas, simulation and no-broadcast checklist.</span></div>
                   <div><strong>Safety boundary</strong><span>The skill never broadcasts. The wallet or user must explicitly handle any final action.</span></div>
+                </div>
+                <div className="walletReadinessPanel">
+                  <div>
+                    <p className="eyebrow">On-chain wallet readiness</p>
+                    <h2>BSC RPC proof</h2>
+                    <span>Checks BSC mainnet, latest block, BNB gas, USDC balance and USDC allowance directly through RPC. No transaction is sent.</span>
+                  </div>
+                  <button onClick={checkWalletReadiness} disabled={!walletAddress}>Check connected wallet</button>
+                  {walletReadiness && (
+                    <>
+                      <div className="quoteCards">
+                        <div><span>Chain</span><strong>{walletReadiness.chain}</strong></div>
+                        <div><span>Block</span><strong>{walletReadiness.blockNumber}</strong></div>
+                        <div><span>BNB gas</span><strong>{walletReadiness.balances.bnb}</strong></div>
+                        <div><span>USDC</span><strong>{walletReadiness.balances.usdc}</strong></div>
+                      </div>
+                      <div className="checklist">
+                        {[
+                          ["BSC mainnet", walletReadiness.checks.bscMainnet],
+                          ["USDC contract", walletReadiness.checks.usdcContractCode],
+                          ["Has gas", walletReadiness.checks.hasGas],
+                          ["Has USDC", walletReadiness.checks.hasUsdc],
+                          ["USDC allowance", walletReadiness.checks.hasAllowance],
+                          ["No broadcast", walletReadiness.checks.noBroadcast]
+                        ].map(([label, done]) => (
+                          <span className={done ? "done" : ""} key={String(label)}>
+                            <CheckCircle2 size={15} />
+                            {label}
+                          </span>
+                        ))}
+                      </div>
+                      <div className="statusBox">
+                        <strong>{walletReadiness.nextRequiredAction}</strong>
+                        <span>Allowance: {walletReadiness.balances.usdcAllowance} USDC</span>
+                      </div>
+                    </>
+                  )}
                 </div>
               </>
             )}

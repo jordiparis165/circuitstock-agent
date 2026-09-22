@@ -100,6 +100,12 @@ Input:
 
 Use this when a natural-language judge or wallet agent wants a concise recommendation grounded in live scanner, basket, watcher and readiness context. If `OPENAI_API_KEY` is not configured, the tool returns a deterministic fallback instead of failing.
 
+### check_wallet_readiness
+
+Call `GET /api/wallet/readiness/{address}`.
+
+Use this before asking for approval or swap signing. It reads BSC mainnet RPC state for chain ID, latest block, BNB gas balance, USDC balance and USDC allowance. It never sends a transaction.
+
 ## Safety Rules
 
 - Never broadcast automatically.

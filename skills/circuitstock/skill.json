@@ -52,6 +52,11 @@
       "name": "ai_reasoning_copilot",
       "method": "POST",
       "path": "/api/ai/agent"
+    },
+    {
+      "name": "check_wallet_readiness",
+      "method": "GET",
+      "path": "/api/wallet/readiness/{address}"
     }
   ],
   "safety": {

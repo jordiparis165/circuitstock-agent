@@ -190,6 +190,7 @@ Invoke-RestMethod -Uri http://localhost:8787/api/agent/interpret -Method Post -C
 - `GET /api/rwa/platforms`, `GET /api/rwa/search?q=TSLA` - platform discovery and ticker resolution.
 - `GET /api/research/:symbol` - candles, volatility, underlying profile and market context.
 - `GET /api/wallet/:address` - balance and portfolio checks.
+- `GET /api/wallet/readiness/:address` - direct BSC RPC check for chain, latest block, BNB gas, USDC balance and allowance.
 - `GET /api/tx/status/:hash` - post-signature transaction status lookup if a user broadcasts manually.
 - `POST /api/quote`, `POST /api/swap`, `POST /api/simulate` - individual integration steps for debugging.
 
@@ -213,6 +214,7 @@ Last verified locally:
 - `/api/execution/prepare` returns quote, official approval, approval calldata, swap calldata, wallet check, gas check, research check, simulation summary, and `broadcasted: false`.
 - `/api/agent/recommend/compact` returns a compact recommendation payload for agent runtimes.
 - `/api/ai/agent` returns LLM reasoning when `OPENAI_API_KEY` is configured and deterministic fallback otherwise.
+- `/api/wallet/readiness/:address` proves live BSC RPC wallet state without broadcasting.
 - `/api/b402/manifest` and `/api/premium/signal` expose the demo payment-gated agent shape.
 - `/api/watcher/status` and `/api/watcher/tick` expose the autonomous dry-run runtime.
 - `/api/baskets/plan` returns a no-broadcast thematic basket plan.

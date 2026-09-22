@@ -395,6 +395,7 @@ h2 {
 .statusBox,
 .watcherPanel,
 .aiPanel,
+.walletReadinessPanel,
 .watcherStats div,
 .evidenceRows span {
   border: 1px solid #2b3139;
@@ -774,8 +775,30 @@ h2 {
   padding: 14px;
 }
 
+.walletReadinessPanel {
+  display: grid;
+  gap: 12px;
+  padding: 14px;
+}
+
+.walletReadinessPanel > button {
+  min-height: 38px;
+  border: 0;
+  border-radius: 8px;
+  color: #0b0e11;
+  background: #f0b90b;
+  cursor: pointer;
+  font-weight: 850;
+}
+
+.walletReadinessPanel > button:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
+}
+
 .aiPanel span,
-.aiPanel small {
+.aiPanel small,
+.walletReadinessPanel span {
   display: block;
   color: #848e9c;
 }
