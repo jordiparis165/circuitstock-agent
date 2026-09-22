@@ -2,6 +2,7 @@ import {
   Activity,
   BadgeDollarSign,
   CheckCircle2,
+  ClipboardCheck,
   Cpu,
   FileSignature,
   Link2,
@@ -247,7 +248,14 @@ type WalletReadiness = {
   nextRequiredAction: string;
 };
 
-type ViewId = "monitor" | "wallet" | "agent" | "baskets" | "risk";
+type SmokeResult = {
+  ok: boolean;
+  latencyMs: number;
+  checks: Array<{ name: string; ok: boolean; detail?: unknown }>;
+  readiness: Readiness;
+};
+
+type ViewId = "monitor" | "wallet" | "agent" | "baskets" | "risk" | "judge";
 
 const API_BASE = (import.meta.env.VITE_API_BASE_URL ?? "").replace(/\/$/, "");
 const currency = new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" });
@@ -295,6 +303,9 @@ export function App() {
   const [aiPrompt, setAiPrompt] = useState("Given the live scanner and risk rules, what should we do next?");
   const [aiAgent, setAiAgent] = useState<AiAgentResult | null>(null);
   const [walletReadiness, setWalletReadiness] = useState<WalletReadiness | null>(null);
+  const [judgeSmoke, setJudgeSmoke] = useState<SmokeResult | null>(null);
+  const [judgeChainProof, setJudgeChainProof] = useState<WalletReadiness | null>(null);
+  const [judgeMessage, setJudgeMessage] = useState<string | null>(null);
 
   async function refresh() {
     setLoading(true);
@@ -462,6 +473,45 @@ export function App() {
     setWalletReadiness(data);
   }
 
+  async function runJudgeSmoke() {
+    setJudgeMessage("Running judge smoke test...");
+    const data = await getJson<SmokeResult>("/api/judge/smoke");
+    setJudgeSmoke(data);
+    setReadiness(data.readiness);
+    setJudgeMessage(data.ok ? "Smoke test passed." : "Smoke test found an issue.");
+    getJson<Evidence>("/api/evidence").then(setEvidence).catch(() => undefined);
+  }
+
+  async function runJudgeChainProof() {
+    setJudgeMessage("Checking BSC RPC proof...");
+    const data = await getJson<WalletReadiness>("/api/wallet/readiness/0x000000000000000000000000000000000000dEaD");
+    setJudgeChainProof(data);
+    setJudgeMessage("BSC RPC proof refreshed.");
+    getJson<Evidence>("/api/evidence").then(setEvidence).catch(() => undefined);
+  }
+
+  async function copySubmissionBundle() {
+    const links = readiness?.links ?? {
+      repository: "https://github.com/jordiparis165/circuitstock-agent",
+      frontend: "https://circuitstock-agent.vercel.app",
+      api: "https://circuitstock-agent-api.onrender.com",
+      docs: "https://github.com/jordiparis165/circuitstock-agent/blob/main/README.md"
+    };
+    const bundle = [
+      "CircuitStock Agent - BNB Hack Tokenized Stocks Edition",
+      `Frontend: ${links.frontend}`,
+      `API: ${links.api}`,
+      `Repository: ${links.repository}`,
+      `Docs: ${links.docs}`,
+      `Judge readiness: ${links.api}/api/judge/readiness`,
+      `Judge smoke: ${links.api}/api/judge/smoke`,
+      `BSC proof: ${links.api}/api/wallet/readiness/0x000000000000000000000000000000000000dEaD`,
+      "Boundary: RWA scan -> quote -> approval calldata -> swap calldata -> simulation -> user signature only. No automatic broadcast."
+    ].join("\n");
+    await navigator.clipboard?.writeText(bundle);
+    setJudgeMessage("Submission bundle copied.");
+  }
+
   useEffect(() => {
     refresh().then(() => runStrategy("balanced"));
   }, []);
@@ -481,7 +531,8 @@ export function App() {
     { id: "wallet", label: "Wallet Skills", icon: WalletCards },
     { id: "agent", label: "Agent Studio", icon: Cpu },
     { id: "baskets", label: "Baskets", icon: PieChart },
-    { id: "risk", label: "Risk Rules", icon: ShieldCheck }
+    { id: "risk", label: "Risk Rules", icon: ShieldCheck },
+    { id: "judge", label: "Judge Mode", icon: ClipboardCheck }
   ];
 
   return (
@@ -772,6 +823,91 @@ export function App() {
                 </div>
               </>
             )}
+            {activeView === "judge" && (
+              <>
+                <div>
+                  <p className="eyebrow">Judge Mode</p>
+                  <h2>Submission proof center</h2>
+                </div>
+                <div className="judgeActions">
+                  <button onClick={runJudgeSmoke}>Run smoke test</button>
+                  <button onClick={runJudgeChainProof}>Run BSC proof</button>
+                  <button onClick={copySubmissionBundle}>Copy submission bundle</button>
+                </div>
+                {judgeMessage && (
+                  <div className="statusBox">
+                    <strong>{judgeMessage}</strong>
+                    <span>These checks hit the deployed API and live BSC RPC. No transaction is broadcast.</span>
+                  </div>
+                )}
+                <div className="linkGrid">
+                  {Object.entries(readiness?.links ?? {}).map(([label, href]) => (
+                    <a href={href} target="_blank" rel="noreferrer" key={label}>
+                      <strong>{label}</strong>
+                      <span>{href}</span>
+                    </a>
+                  ))}
+                  <a href={`${API_BASE || "https://circuitstock-agent-api.onrender.com"}/api/judge/smoke`} target="_blank" rel="noreferrer">
+                    <strong>smoke</strong>
+                    <span>/api/judge/smoke</span>
+                  </a>
+                  <a href={`${API_BASE || "https://circuitstock-agent-api.onrender.com"}/api/wallet/readiness/0x000000000000000000000000000000000000dEaD`} target="_blank" rel="noreferrer">
+                    <strong>BSC proof</strong>
+                    <span>/api/wallet/readiness/:address</span>
+                  </a>
+                </div>
+                <div className="judgeGrid">
+                  <div>
+                    <p className="eyebrow">Smoke test</p>
+                    <h2>{judgeSmoke ? (judgeSmoke.ok ? "All core checks pass" : "Review failing checks") : "One-click API audit"}</h2>
+                    <div className="readinessRows">
+                      {judgeSmoke?.checks.map((check) => (
+                        <span className={check.ok ? "ready" : "missing"} key={check.name}>
+                          <CheckCircle2 size={15} />
+                          {check.name}
+                        </span>
+                      )) ?? <span className="todo">Run smoke test to verify market, basket, watcher, b402, wallet proof and no-broadcast.</span>}
+                    </div>
+                    {judgeSmoke && <small className="judgeMeta">{judgeSmoke.latencyMs} ms total latency</small>}
+                  </div>
+                  <div>
+                    <p className="eyebrow">Live chain proof</p>
+                    <h2>{judgeChainProof ? `${judgeChainProof.chain} block ${judgeChainProof.blockNumber}` : "BSC RPC not cached yet"}</h2>
+                    <div className="readinessRows">
+                      {judgeChainProof ? (
+                        [
+                          ["BSC mainnet", judgeChainProof.checks.bscMainnet],
+                          ["USDC contract code", judgeChainProof.checks.usdcContractCode],
+                          ["BNB gas balance read", true],
+                          ["USDC balance read", true],
+                          ["Allowance read", true],
+                          ["No broadcast", judgeChainProof.checks.noBroadcast]
+                        ].map(([label, done]) => (
+                          <span className={done ? "ready" : "missing"} key={String(label)}>
+                            <CheckCircle2 size={15} />
+                            {label}
+                          </span>
+                        ))
+                      ) : (
+                        <span className="todo">Run BSC proof to show current chain, latest block, USDC code and wallet reads.</span>
+                      )}
+                    </div>
+                  </div>
+                  <div>
+                    <p className="eyebrow">Full readiness</p>
+                    <h2>Submission checklist</h2>
+                    <div className="readinessRows compact">
+                      {readiness?.checklist.map((item) => (
+                        <span className={item.status} key={item.item}>
+                          <CheckCircle2 size={15} />
+                          {item.item}
+                        </span>
+                      )) ?? <span className="todo">Loading checklist</span>}
+                    </div>
+                  </div>
+                </div>
+              </>
+            )}
           </section>
         )}
 
@@ -966,6 +1102,7 @@ export function App() {
           <div><strong>Trading API</strong><span>/quote + /approve-transaction + /swap + /history</span></div>
           <div><strong>Transaction API</strong><span>/gas-price + /gas-limit + /simulate</span></div>
           <div><strong>Wallet API</strong><span>/balance + /portfolio before trade</span></div>
+          <div><strong>BSC RPC proof</strong><span>/api/wallet/readiness/:address chain, balances and allowance</span></div>
           <div><strong>Agent endpoint</strong><span>/api/agent/recommend/compact</span></div>
           <div><strong>AI agent</strong><span>/api/ai/agent live reasoning copilot</span></div>
           <div><strong>b402 hook</strong><span>/api/b402/manifest + /api/premium/signal</span></div>

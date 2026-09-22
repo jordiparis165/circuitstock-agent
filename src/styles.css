@@ -781,6 +781,78 @@ h2 {
   padding: 14px;
 }
 
+.judgeActions {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.judgeActions button {
+  min-height: 40px;
+  border: 0;
+  border-radius: 8px;
+  color: #0b0e11;
+  background: #f0b90b;
+  cursor: pointer;
+  font-weight: 850;
+}
+
+.linkGrid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.linkGrid a {
+  min-height: 74px;
+  padding: 12px;
+  border: 1px solid #2b3139;
+  border-radius: 8px;
+  color: inherit;
+  background: #0b0e11;
+  text-decoration: none;
+}
+
+.linkGrid a:hover {
+  border-color: rgb(240 185 11 / 55%);
+}
+
+.linkGrid strong,
+.linkGrid span {
+  display: block;
+}
+
+.linkGrid strong {
+  color: #f5f5f5;
+  text-transform: capitalize;
+}
+
+.linkGrid span {
+  margin-top: 6px;
+  overflow-wrap: anywhere;
+  color: #848e9c;
+  font-size: 0.82rem;
+}
+
+.judgeGrid {
+  display: grid;
+  grid-template-columns: minmax(0, 0.9fr) minmax(0, 0.9fr) minmax(280px, 1.2fr);
+  gap: 12px;
+}
+
+.judgeGrid > div {
+  padding: 14px;
+  border: 1px solid #2b3139;
+  border-radius: 8px;
+  background: #181a20;
+}
+
+.judgeMeta {
+  display: block;
+  margin-top: 10px;
+  color: #848e9c;
+}
+
 .walletReadinessPanel > button {
   min-height: 38px;
   border: 0;
@@ -942,6 +1014,18 @@ h2 {
   background: rgb(240 185 11 / 8%);
 }
 
+.readinessRows span.missing {
+  color: #f6465d;
+  border-color: rgb(246 70 93 / 35%);
+  background: rgb(246 70 93 / 8%);
+}
+
+.readinessRows.compact {
+  max-height: 350px;
+  overflow: auto;
+  padding-right: 4px;
+}
+
 .txVerifier input {
   min-width: 0;
   height: 40px;
@@ -977,6 +1061,8 @@ h2 {
   .opsPanel,
   .infoGrid,
   .firstStockPanel,
+  .judgeGrid,
+  .linkGrid,
   .basketRows {
     grid-template-columns: 1fr;
   }
@@ -1033,11 +1119,12 @@ h2 {
   .quoteCards,
   .checklist,
   .txVerifier,
-  .agentPrompt,
-  .firstStockControls,
-  .watcherStats,
-  .watcherActions,
-  .basketControls {
+    .agentPrompt,
+    .firstStockControls,
+    .judgeActions,
+    .watcherStats,
+    .watcherActions,
+    .basketControls {
     grid-template-columns: 1fr;
   }
 }

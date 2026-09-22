@@ -6,7 +6,10 @@ CircuitStock monitors tokenized-stock prices on BSC against reference prices, de
 
 Repository: https://github.com/jordiparis165/circuitstock-agent
 
-Status: working local product, private repo for now, ready for Render/Vercel deployment after account login. Make the repo public before final judging.
+Status: production demo deployed on Vercel + Render with a public GitHub repo, live Binance Web3 API checks, live BSC RPC readiness proof, and an in-app Judge Mode.
+
+Live frontend: https://circuitstock-agent.vercel.app
+Live API: https://circuitstock-agent-api.onrender.com
 
 ## Why this angle
 
@@ -17,7 +20,7 @@ Status: working local product, private repo for now, ready for Render/Vercel dep
 
 ## What Exists Now
 
-- Dense Vite/React dashboard for judges.
+- Dense Vite/React dashboard for judges, including a dedicated **Judge Mode** proof center.
 - Express API server with signed Binance Web3 requests.
 - Live RWA spread scanner for bStocks/Ondo categories.
 - Agent recommendation engine with risk and max trade controls.
@@ -37,6 +40,7 @@ Status: working local product, private repo for now, ready for Render/Vercel dep
 - Skill files in `skills/circuitstock/`.
 - Screenshots in `screenshots/`.
 - Submission docs in `docs/`.
+- In-app smoke test, BSC RPC proof, production links, and copyable submission bundle.
 
 ## Project Map
 
@@ -163,12 +167,14 @@ Invoke-RestMethod -Uri http://localhost:8787/api/agent/interpret -Method Post -C
 3. Use **First stock flow** to preview a small TSLA/NVDA/MSFT/SPY buy.
 4. Click **Prepare execution** on an agent action.
 5. Review quote, official approval evidence, wallet checks, gas checks, research context, approval calldata, swap calldata, and simulation result.
-6. Open **Agent Studio** and run the prompt demo.
-7. In **Agent Studio**, run the AI agent copilot. It uses OpenAI if `OPENAI_API_KEY` is configured, otherwise deterministic fallback.
-8. Inspect the dry-run watcher status and run a manual tick. It should either skip with a policy reason or return `would-execute`.
-9. Open **Baskets** and plan an AI Chips / Magnificent 7 / ETF / Buffett basket.
-10. Inspect `GET /api/judge/readiness`, `GET /api/judge/smoke`, `GET /api/b402/manifest`, and the demo `POST /api/premium/signal` route.
-11. Optionally try **Sign/copy approval** and **Sign/copy swap**. The app never broadcasts automatically.
+6. Open **Judge Mode**, run **Run smoke test**, then run **Run BSC proof**.
+7. Copy the submission bundle for the hackathon form.
+8. Open **Agent Studio** and run the prompt demo.
+9. In **Agent Studio**, run the AI agent copilot. It uses OpenAI if `OPENAI_API_KEY` is configured, otherwise deterministic fallback.
+10. Inspect the dry-run watcher status and run a manual tick. It should either skip with a policy reason or return `would-execute`.
+11. Open **Baskets** and plan an AI Chips / Magnificent 7 / ETF / Buffett basket.
+12. Inspect `GET /api/judge/readiness`, `GET /api/judge/smoke`, `GET /api/b402/manifest`, and the demo `POST /api/premium/signal` route.
+13. Optionally try **Sign/copy approval** and **Sign/copy swap**. The app never broadcasts automatically.
 
 ## Local API
 
