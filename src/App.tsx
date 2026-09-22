@@ -5,6 +5,7 @@ import {
   Cpu,
   FileSignature,
   Link2,
+  PieChart,
   RefreshCw,
   ShieldCheck,
   SlidersHorizontal,
@@ -179,7 +180,38 @@ type WatcherStatus = {
   }>;
 };
 
-type ViewId = "monitor" | "wallet" | "agent" | "risk";
+type BasketPlan = {
+  ok: boolean;
+  theme: string;
+  label: string;
+  thesis: string;
+  risk: "balanced" | "aggressive";
+  amountUsd: number;
+  cacheStatus: string;
+  requiredUserAction: string;
+  summary: string;
+  legs: Array<{
+    symbol: string;
+    name: string;
+    tokenSource: string;
+    tokenAddress: string;
+    allocationUsd: number;
+    weightPct: number;
+    action: "buy" | "watch";
+    spreadBps: number;
+    liquidityUsd: number;
+    score: number;
+    reason: string;
+  }>;
+};
+
+type Readiness = {
+  ok: boolean;
+  links: Record<string, string>;
+  checklist: Array<{ item: string; status: "ready" | "todo" | "missing" }>;
+};
+
+type ViewId = "monitor" | "wallet" | "agent" | "baskets" | "risk";
 
 const API_BASE = (import.meta.env.VITE_API_BASE_URL ?? "").replace(/\/$/, "");
 const currency = new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" });
@@ -220,6 +252,10 @@ export function App() {
   const [firstStockAmount, setFirstStockAmount] = useState(10);
   const [watcher, setWatcher] = useState<WatcherStatus | null>(null);
   const [watcherMessage, setWatcherMessage] = useState<string | null>(null);
+  const [basketTheme, setBasketTheme] = useState("ai-chips");
+  const [basketAmount, setBasketAmount] = useState(25);
+  const [basket, setBasket] = useState<BasketPlan | null>(null);
+  const [readiness, setReadiness] = useState<Readiness | null>(null);
 
   async function refresh() {
     setLoading(true);
@@ -233,6 +269,7 @@ export function App() {
     setCacheStatus(marketData.cacheStatus ?? "live");
     getJson<Evidence>("/api/evidence").then(setEvidence).catch(() => undefined);
     getJson<WatcherStatus>("/api/watcher/status").then(setWatcher).catch(() => undefined);
+    getJson<Readiness>("/api/judge/readiness").then(setReadiness).catch(() => undefined);
     setLoading(false);
   }
 
@@ -359,6 +396,16 @@ export function App() {
     }
   }
 
+  async function planBasket() {
+    const data = await getJson<BasketPlan>("/api/baskets/plan", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ theme: basketTheme, amountUsd: basketAmount, risk, platforms: [platform] })
+    });
+    setBasket(data);
+    getJson<Evidence>("/api/evidence").then(setEvidence).catch(() => undefined);
+  }
+
   useEffect(() => {
     refresh().then(() => runStrategy("balanced"));
   }, []);
@@ -377,6 +424,7 @@ export function App() {
     { id: "monitor", label: "Monitor", icon: Activity },
     { id: "wallet", label: "Wallet Skills", icon: WalletCards },
     { id: "agent", label: "Agent Studio", icon: Cpu },
+    { id: "baskets", label: "Baskets", icon: PieChart },
     { id: "risk", label: "Risk Rules", icon: ShieldCheck }
   ];
 
@@ -549,6 +597,55 @@ export function App() {
                     ))}
                   </div>
                 </div>
+              </>
+            )}
+            {activeView === "baskets" && (
+              <>
+                <div>
+                  <p className="eyebrow">Thematic baskets</p>
+                  <h2>One-tap tokenized stock basket plan</h2>
+                </div>
+                <div className="basketControls">
+                  <label>
+                    Theme
+                    <select value={basketTheme} onChange={(event) => setBasketTheme(event.target.value)}>
+                      <option value="ai-chips">AI Chips</option>
+                      <option value="magnificent-7">Magnificent 7</option>
+                      <option value="etf">ETF Core</option>
+                      <option value="buffett">Buffett Portfolio</option>
+                    </select>
+                  </label>
+                  <label>
+                    Basket USD
+                    <input type="number" min={5} max={250} value={basketAmount} onChange={(event) => setBasketAmount(Number(event.target.value))} />
+                  </label>
+                  <button onClick={planBasket}>Plan basket</button>
+                </div>
+                {basket ? (
+                  <div className="basketPanel">
+                    <div className="statusBox">
+                      <strong>{basket.label}: {basket.summary}</strong>
+                      <span>{basket.thesis} {basket.requiredUserAction}</span>
+                    </div>
+                    <div className="basketRows">
+                      {basket.legs.map((leg) => (
+                        <article key={leg.symbol}>
+                          <div>
+                            <strong>{leg.symbol}</strong>
+                            <span>{currency.format(leg.allocationUsd)} - {leg.weightPct}%</span>
+                          </div>
+                          <p>{leg.reason}</p>
+                          <small>{leg.action} - spread {leg.spreadBps} bps - liquidity {compactUsd.format(leg.liquidityUsd)}</small>
+                        </article>
+                      ))}
+                    </div>
+                  </div>
+                ) : (
+                  <div className="statusBox">
+                    <strong>Basket planner ready</strong>
+                    <span>Builds a BSC-only, spot-only, no-broadcast basket using the same live RWA scanner.</span>
+                  </div>
+                )}
               </>
             )}
             {activeView === "risk" && (
@@ -760,6 +857,8 @@ export function App() {
           <div><strong>Wallet API</strong><span>/balance + /portfolio before trade</span></div>
           <div><strong>Agent endpoint</strong><span>/api/agent/recommend/compact</span></div>
           <div><strong>b402 hook</strong><span>/api/b402/manifest + /api/premium/signal</span></div>
+          <div><strong>Basket engine</strong><span>/api/baskets/plan thematic allocations</span></div>
+          <div><strong>Judge smoke</strong><span>/api/judge/readiness + /api/judge/smoke</span></div>
         </section>
 
         <section className="opsPanel">
@@ -773,6 +872,18 @@ export function App() {
                   {call.status} - {call.latencyMs} ms - {call.endpoint}
                 </span>
               )) ?? <span>No calls yet.</span>}
+            </div>
+          </div>
+          <div>
+            <p className="eyebrow">Judge readiness</p>
+            <h2>Submission checklist</h2>
+            <div className="readinessRows">
+              {readiness?.checklist.slice(0, 7).map((item) => (
+                <span className={item.status} key={item.item}>
+                  <CheckCircle2 size={15} />
+                  {item.item}
+                </span>
+              )) ?? <span className="todo">Loading checklist</span>}
             </div>
           </div>
           <div>

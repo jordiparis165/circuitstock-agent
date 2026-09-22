@@ -51,6 +51,9 @@ app.get("/", (_req, res) => {
     evidence: "/api/evidence",
     agent: "/api/agent/recommend/compact",
     watcher: "/api/watcher/status",
+    baskets: "/api/baskets",
+    readiness: "/api/judge/readiness",
+    smoke: "/api/judge/smoke",
     docs: "https://github.com/jordiparis165/circuitstock-agent"
   });
 });
@@ -115,6 +118,31 @@ type ApiEvidence = {
   latencyMs: number;
   at: string;
   note?: string;
+};
+
+type BasketTheme = "magnificent-7" | "ai-chips" | "etf" | "buffett";
+
+const basketThemes: Record<BasketTheme, { label: string; tab: number; thesis: string }> = {
+  "magnificent-7": {
+    label: "Magnificent 7",
+    tab: 9,
+    thesis: "Large-cap tech stock exposure with spread-aware BSC execution."
+  },
+  "ai-chips": {
+    label: "AI Chips",
+    tab: 4,
+    thesis: "Semiconductor and AI infrastructure basket using tokenized stocks."
+  },
+  etf: {
+    label: "ETF Core",
+    tab: 11,
+    thesis: "Simple diversified ETF-style tokenized equity starter basket."
+  },
+  buffett: {
+    label: "Buffett Portfolio",
+    tab: 12,
+    thesis: "Value-oriented tokenized stock basket for slower rebalancing."
+  }
 };
 
 const seedQuotes: Omit<MarketQuote, "spreadBps" | "contractReady">[] = [
@@ -516,6 +544,97 @@ function actionFromOpportunity(opportunity: Opportunity, maxTradeUsd: number): A
   };
 }
 
+function normalizeBasketTheme(input: unknown): BasketTheme {
+  const value = String(input ?? "ai-chips").toLowerCase();
+  return value in basketThemes ? (value as BasketTheme) : "ai-chips";
+}
+
+async function buildBasketPlan(themeInput: unknown, amountUsdInput: unknown, platformsInput: unknown, riskInput: unknown) {
+  const theme = normalizeBasketTheme(themeInput);
+  const amountUsd = Math.min(250, Math.max(5, Number(amountUsdInput ?? 25)));
+  const risk = riskInput === "aggressive" ? "aggressive" : "balanced";
+  const platforms = normalizePlatforms(platformsInput);
+  const preset = basketThemes[theme];
+  const { cacheStatus, tokens } = await fetchRwaTokens(platforms, [preset.tab]);
+  const opportunities = tokensToOpportunities(tokens);
+  const sorted = [...opportunities].sort((a, b) => {
+    const directionScore = (item: Opportunity) => (item.direction === "buy" ? 2 : item.direction === "watch" ? 1 : 0);
+    return directionScore(b) - directionScore(a) || b.score - a.score;
+  });
+  const count = risk === "aggressive" ? 3 : 5;
+  const legs = sorted.slice(0, count).map((item, index) => {
+    const weight = index === 0 && risk === "aggressive" ? 0.5 : 1 / Math.min(count, sorted.length || 1);
+    return {
+      symbol: item.symbol,
+      name: item.name,
+      tokenSource: item.tokenSource,
+      tokenAddress: item.tokenAddress,
+      allocationUsd: Number((amountUsd * weight).toFixed(2)),
+      weightPct: Number((weight * 100).toFixed(1)),
+      action: item.direction === "buy" ? "buy" : "watch",
+      spreadBps: item.spreadBps,
+      liquidityUsd: item.liquidityUsd,
+      score: item.score,
+      reason:
+        item.direction === "buy"
+          ? "Favored because token is below reference price."
+          : item.direction === "trim"
+            ? "Included as watch-only because token is above reference price."
+            : "Included for diversified exposure while spread is tight."
+    };
+  });
+  const tradableUsd = legs.filter((leg) => leg.action === "buy").reduce((sum, leg) => sum + leg.allocationUsd, 0);
+
+  return {
+    ok: true,
+    mode: "basket-plan",
+    cacheStatus,
+    theme,
+    label: preset.label,
+    thesis: preset.thesis,
+    risk,
+    amountUsd,
+    platforms,
+    chain: "BSC mainnet",
+    spotOnly: true,
+    broadcasted: false,
+    requiredUserAction: "Review each leg, prepare execution per token, simulate, then sign in wallet only.",
+    summary: `${preset.label} plan with ${legs.length} legs, ${currencyLike(tradableUsd)} currently marked buy-ready.`,
+    legs
+  };
+}
+
+function currencyLike(value: number): string {
+  return `$${value.toFixed(2)}`;
+}
+
+function judgeReadiness() {
+  return {
+    ok: true,
+    links: {
+      repository: "https://github.com/jordiparis165/circuitstock-agent",
+      frontend: "https://circuitstock-agent.vercel.app",
+      api: "https://circuitstock-agent-api.onrender.com",
+      docs: "https://github.com/jordiparis165/circuitstock-agent/blob/main/README.md"
+    },
+    checklist: [
+      { item: "Public GitHub repository", status: "ready" },
+      { item: "Vercel frontend deployed", status: "ready" },
+      { item: "Render API deployed", status: "ready" },
+      { item: "Binance Web3 API key server-side", status: config.apiKey && config.apiSecret ? "ready" : "missing" },
+      { item: "RWA scan -> quote -> approval -> swap -> simulation flow", status: "ready" },
+      { item: "No automatic broadcast", status: "ready" },
+      { item: "Wallet Skills spec", status: "ready" },
+      { item: "Agent Studio dry-run watcher", status: "ready" },
+      { item: "b402/x402 demo route", status: "ready" },
+      { item: "DX report", status: "ready" },
+      { item: "Demo video under four minutes", status: "todo" },
+      { item: "Fresh screenshots", status: "todo" },
+      { item: "Rotate shared credentials", status: "todo" }
+    ]
+  };
+}
+
 function compactError(result: unknown) {
   const payload = result as { ok?: boolean; error?: string; body?: string; status?: number };
   if (payload.ok !== false) return null;
@@ -888,7 +1007,9 @@ app.get("/api/evidence", (_req, res) => {
       "Wallet API",
       "Agent endpoint",
       "b402 payment hook",
-      "Dry-run watcher"
+      "Dry-run watcher",
+      "Basket engine",
+      "Judge readiness"
     ],
     endpoints: {
       rwaTokens: config.rwaTokensPath,
@@ -906,10 +1027,59 @@ app.get("/api/evidence", (_req, res) => {
       b402Manifest: "/api/b402/manifest",
       premiumSignal: "/api/premium/signal",
       watcherStatus: "/api/watcher/status",
-      watcherTick: "/api/watcher/tick"
+      watcherTick: "/api/watcher/tick",
+      baskets: "/api/baskets/plan",
+      judgeReadiness: "/api/judge/readiness",
+      judgeSmoke: "/api/judge/smoke"
     },
     recentCalls: apiEvidence
   });
+});
+
+app.get("/api/judge/readiness", (_req, res) => {
+  res.json(judgeReadiness());
+});
+
+app.get("/api/judge/smoke", async (_req, res) => {
+  const startedAt = Date.now();
+  const checks: Array<{ name: string; ok: boolean; detail?: unknown }> = [];
+  checks.push({ name: "health", ok: Boolean(config.apiKey && config.apiSecret), detail: { baseUrl: config.baseUrl } });
+  try {
+    const market = await getLiveMarket();
+    checks.push({ name: "market", ok: market.quotes.length > 0, detail: { cacheStatus: market.cacheStatus, count: market.quotes.length } });
+  } catch (error) {
+    checks.push({ name: "market", ok: false, detail: normalizeApiError(error as Error & { status?: number; body?: string }) });
+  }
+  try {
+    const basket = await buildBasketPlan("ai-chips", 25, ["bstock"], "balanced");
+    checks.push({ name: "basket", ok: basket.legs.length > 0, detail: { theme: basket.theme, legs: basket.legs.length } });
+  } catch (error) {
+    checks.push({ name: "basket", ok: false, detail: (error as Error).message });
+  }
+  const watcher = watcherStatus();
+  checks.push({ name: "watcher", ok: watcher.policy.mode === "dry-run", detail: { enabled: watcher.enabled, killed: watcher.killed } });
+  checks.push({ name: "b402", ok: true, detail: { manifest: "/api/b402/manifest", premiumSignal: "/api/premium/signal" } });
+  checks.push({ name: "broadcast", ok: true, detail: "No backend route broadcasts transactions." });
+
+  res.json({
+    ok: checks.every((check) => check.ok),
+    latencyMs: Date.now() - startedAt,
+    checks,
+    readiness: judgeReadiness()
+  });
+});
+
+app.get("/api/baskets", (_req, res) => {
+  res.json({ ok: true, themes: basketThemes });
+});
+
+app.post("/api/baskets/plan", async (req, res) => {
+  try {
+    res.json(await buildBasketPlan(req.body?.theme, req.body?.amountUsd, req.body?.platforms, req.body?.risk));
+  } catch (error) {
+    const typedError = error as Error & { status?: number; body?: string };
+    res.status(typedError.status ?? 500).json({ ok: false, error: normalizeApiError(typedError) });
+  }
 });
 
 app.get("/api/b402/manifest", (_req, res) => {

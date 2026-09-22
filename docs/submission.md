@@ -46,6 +46,8 @@ http://localhost:5173
 - `POST /api/premium/signal` returns `402 Payment Required` unless the hackathon demo payment header is supplied.
 - `GET /api/watcher/status` exposes the dry-run autonomous runtime policy, kill switch, budget and latest decisions.
 - `POST /api/watcher/tick` runs one manual dry-run evaluation for judge review.
+- `POST /api/baskets/plan` returns a thematic no-broadcast basket plan for AI Chips, Magnificent 7, ETF or Buffett-style baskets.
+- `GET /api/judge/readiness` and `GET /api/judge/smoke` provide one-call judge verification.
 - No automatic broadcast exists in the app.
 - `POST /api/agent/recommend` exposes the same logic for agent runtimes.
 
@@ -119,6 +121,21 @@ POST /api/watcher/tick
 ```
 
 Output: policy decision and current watcher status. The watcher is intentionally dry-run by default, requires `AUTO_ALLOWED_SYMBOLS`, respects daily budget/cooldown/spread/liquidity rules, and refuses live mode until an executor is wired.
+
+### `plan_thematic_basket`
+
+Input:
+
+```json
+{
+  "theme": "ai-chips",
+  "amountUsd": 25,
+  "risk": "balanced",
+  "platforms": ["bstock"]
+}
+```
+
+Output: basket thesis, legs, allocation, spread, liquidity, score and required user action. Legs are `buy` only when the token is below reference price; otherwise they remain `watch`.
 
 ## Deployment
 

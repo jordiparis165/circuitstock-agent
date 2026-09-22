@@ -37,6 +37,16 @@
       "name": "dry_run_watcher_tick",
       "method": "POST",
       "path": "/api/watcher/tick"
+    },
+    {
+      "name": "plan_thematic_basket",
+      "method": "POST",
+      "path": "/api/baskets/plan"
+    },
+    {
+      "name": "judge_smoke_test",
+      "method": "GET",
+      "path": "/api/judge/smoke"
     }
   ],
   "safety": {

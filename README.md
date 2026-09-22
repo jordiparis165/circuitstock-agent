@@ -165,8 +165,9 @@ Invoke-RestMethod -Uri http://localhost:8787/api/agent/interpret -Method Post -C
 5. Review quote, official approval evidence, wallet checks, gas checks, research context, approval calldata, swap calldata, and simulation result.
 6. Open **Agent Studio** and run the prompt demo.
 7. In **Agent Studio**, inspect the dry-run watcher status and run a manual tick. It should either skip with a policy reason or return `would-execute`.
-8. Inspect `GET /api/b402/manifest` and the demo `POST /api/premium/signal` route.
-9. Optionally try **Sign/copy approval** and **Sign/copy swap**. The app never broadcasts automatically.
+8. Open **Baskets** and plan an AI Chips / Magnificent 7 / ETF / Buffett basket.
+9. Inspect `GET /api/judge/readiness`, `GET /api/judge/smoke`, `GET /api/b402/manifest`, and the demo `POST /api/premium/signal` route.
+10. Optionally try **Sign/copy approval** and **Sign/copy swap**. The app never broadcasts automatically.
 
 ## Local API
 
@@ -182,6 +183,8 @@ Invoke-RestMethod -Uri http://localhost:8787/api/agent/interpret -Method Post -C
 - `GET /api/watcher/status` - dry-run autonomous watcher status, policy and recent decisions.
 - `POST /api/watcher/tick` - manually run one policy-gated dry-run tick.
 - `POST /api/watcher/kill`, `POST /api/watcher/resume` - judge-visible kill switch controls.
+- `GET /api/baskets`, `POST /api/baskets/plan` - thematic basket planning for Magnificent 7, AI Chips, ETF and Buffett-style baskets.
+- `GET /api/judge/readiness`, `GET /api/judge/smoke` - one-call judge verification and submission checklist.
 - `GET /api/rwa/platforms`, `GET /api/rwa/search?q=TSLA` - platform discovery and ticker resolution.
 - `GET /api/research/:symbol` - candles, volatility, underlying profile and market context.
 - `GET /api/wallet/:address` - balance and portfolio checks.
@@ -209,6 +212,8 @@ Last verified locally:
 - `/api/agent/recommend/compact` returns a compact recommendation payload for agent runtimes.
 - `/api/b402/manifest` and `/api/premium/signal` expose the demo payment-gated agent shape.
 - `/api/watcher/status` and `/api/watcher/tick` expose the autonomous dry-run runtime.
+- `/api/baskets/plan` returns a no-broadcast thematic basket plan.
+- `/api/judge/smoke` returns health, live market, basket, watcher, b402 and no-broadcast checks in one call.
 - `/api/evidence` records recent Binance Web3 modules/endpoints with latency.
 - `npm run test` covers policy whitelist, daily budget and cooldown checks.
 

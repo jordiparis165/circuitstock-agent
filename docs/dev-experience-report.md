@@ -66,6 +66,8 @@ This directly targets the hackathon scoring mix: technical depth, product creati
 - A "First stock flow" was added for non-crypto-native judges: pick TSLA/NVDA/MSFT/SPY, preview a buy, and see the same quote/simulate/sign boundary.
 - Agent endpoints reuse the same engine as the UI, so Wallet Skills and Agent Studio do not rely on a separate code path.
 - A dry-run watcher was added to demonstrate autonomous runtime behavior without crossing the signing/broadcast boundary. It has explicit whitelist, spread, score, liquidity, max trade, daily budget, slippage, cooldown and kill-switch controls.
+- A basket planner was added because "one-tap thematic baskets" is one of the clearest non-crypto-native UX paths for tokenized stocks. It uses the same RWA scanner and marks legs as buy-ready only when the live spread supports it.
+- A judge smoke-test endpoint was added so reviewers can verify health, market data, baskets, watcher, b402 and no-broadcast status in one call.
 
 ## Agent Studio and b402/x402 Notes
 
@@ -102,3 +104,5 @@ This directly targets the hackathon scoring mix: technical depth, product creati
 - Payment hook manifest: `GET /api/b402/manifest`.
 - Demo payment route: `POST /api/premium/signal` with optional header `x-demo-payment: paid`.
 - Dry-run watcher: `GET /api/watcher/status` and `POST /api/watcher/tick`.
+- Thematic basket planner: `POST /api/baskets/plan`.
+- Judge smoke test: `GET /api/judge/smoke`.

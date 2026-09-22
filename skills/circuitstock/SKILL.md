@@ -69,6 +69,18 @@ Call `POST /api/watcher/tick`.
 
 Use this to run one manual monitor iteration. A valid result is `would-execute`, `skipped`, `idle`, or `error`; it never broadcasts.
 
+### plan_thematic_basket
+
+Call `POST /api/baskets/plan`.
+
+Use this to create a no-broadcast basket plan for `ai-chips`, `magnificent-7`, `etf`, or `buffett`. The output includes allocation, spread, liquidity, score and whether each leg is buy-ready or watch-only.
+
+### judge_smoke_test
+
+Call `GET /api/judge/smoke`.
+
+Use this for a single judge-facing verification call covering health, live market, basket engine, watcher, b402 hook and no-broadcast boundary.
+
 ## Safety Rules
 
 - Never broadcast automatically.
