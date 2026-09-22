@@ -394,6 +394,7 @@ h2 {
 .simulationBox,
 .statusBox,
 .watcherPanel,
+.aiPanel,
 .watcherStats div,
 .evidenceRows span {
   border: 1px solid #2b3139;
@@ -765,6 +766,24 @@ h2 {
   display: grid;
   gap: 12px;
   padding: 14px;
+}
+
+.aiPanel {
+  display: grid;
+  gap: 12px;
+  padding: 14px;
+}
+
+.aiPanel span,
+.aiPanel small {
+  display: block;
+  color: #848e9c;
+}
+
+.statusBox small {
+  display: block;
+  margin-top: 8px;
+  color: #f0b90b;
 }
 
 .watcherPanel span,

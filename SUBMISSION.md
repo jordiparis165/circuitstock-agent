@@ -19,7 +19,7 @@ CircuitStock Agent scans BSC tokenized stocks for on-chain/reference spreads, pr
 4. Use **First stock flow** to preview a small TSLA/NVDA/MSFT/SPY buy.
 5. Click **Prepare execution** on an agent recommendation.
 6. Review quote ID, vendor, price impact, wallet checks, official approval, gas checks, approval calldata, swap calldata, simulation status, and no-broadcast checklist.
-7. Open **Agent Studio**, run the natural-language prompt, and verify it fills the same execution preview.
+7. Open **Agent Studio**, run the AI agent copilot and natural-language prompt, and verify both use live context.
 8. Open **Baskets** and plan a thematic basket.
 9. Call `GET /api/judge/smoke`, `GET /api/b402/manifest` or `POST /api/premium/signal` to show judge readiness and payment-gated agent shape.
 10. Optionally connect a wallet and try **Sign/copy approval** / **Sign/copy swap**.
@@ -32,6 +32,7 @@ CircuitStock Agent scans BSC tokenized stocks for on-chain/reference spreads, pr
 - Transaction API: gas price, gas limit and off-chain transaction simulation.
 - Wallet API: balances and portfolio checks before user signing.
 - Agent endpoints: compact recommendation and natural-language interpretation for Agentic Wallet / BNB Agent Studio.
+- AI agent: optional OpenAI-backed reasoning copilot with deterministic fallback.
 - b402/x402 demo hook: manifest plus `402 Payment Required` premium signal route.
 - Dry-run watcher: policy-gated autonomous runtime with kill switch.
 - Basket engine: thematic basket planner with no-broadcast execution boundary.

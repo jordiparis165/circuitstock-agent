@@ -42,6 +42,7 @@ http://localhost:5173
 - `POST /api/execution/prepare` returns quote, official approval check, approval transaction payload, swap payload, gas checks, wallet snapshot, research context, and simulation result.
 - `POST /api/agent/recommend/compact` returns the concise payload intended for Wallet Skills / Agent Studio.
 - `POST /api/agent/interpret` accepts plain-language stock-trading prompts and returns research or a no-broadcast execution preview.
+- `POST /api/ai/agent` returns an optional LLM reasoning recommendation grounded in live scanner, basket, watcher and readiness context.
 - `GET /api/b402/manifest` exposes the demo payment manifest for premium agent monitoring.
 - `POST /api/premium/signal` returns `402 Payment Required` unless the hackathon demo payment header is supplied.
 - `GET /api/watcher/status` exposes the dry-run autonomous runtime policy, kill switch, budget and latest decisions.
@@ -136,6 +137,23 @@ Input:
 ```
 
 Output: basket thesis, legs, allocation, spread, liquidity, score and required user action. Legs are `buy` only when the token is below reference price; otherwise they remain `watch`.
+
+### `ai_reasoning_copilot`
+
+Input:
+
+```json
+{
+  "prompt": "Given the live scanner and risk rules, what should we do next?",
+  "risk": "balanced",
+  "maxTradeUsd": 10,
+  "platforms": ["bstock"],
+  "tabs": [9],
+  "theme": "ai-chips"
+}
+```
+
+Output: short action-oriented AI recommendation. Uses OpenAI Responses API when `OPENAI_API_KEY` is configured; otherwise returns deterministic fallback. No broadcast.
 
 ## Deployment
 

@@ -211,6 +211,21 @@ type Readiness = {
   checklist: Array<{ item: string; status: "ready" | "todo" | "missing" }>;
 };
 
+type AiAgentResult = {
+  ok: boolean;
+  mode: "llm" | "deterministic";
+  configured: boolean;
+  model: string;
+  answer: string;
+  cacheStatus?: string;
+  safety: {
+    broadcasts_transactions: false;
+    requires_user_signature: true;
+    chain: "BSC mainnet";
+  };
+  error?: string;
+};
+
 type ViewId = "monitor" | "wallet" | "agent" | "baskets" | "risk";
 
 const API_BASE = (import.meta.env.VITE_API_BASE_URL ?? "").replace(/\/$/, "");
@@ -256,6 +271,8 @@ export function App() {
   const [basketAmount, setBasketAmount] = useState(25);
   const [basket, setBasket] = useState<BasketPlan | null>(null);
   const [readiness, setReadiness] = useState<Readiness | null>(null);
+  const [aiPrompt, setAiPrompt] = useState("Given the live scanner and risk rules, what should we do next?");
+  const [aiAgent, setAiAgent] = useState<AiAgentResult | null>(null);
 
   async function refresh() {
     setLoading(true);
@@ -406,6 +423,16 @@ export function App() {
     getJson<Evidence>("/api/evidence").then(setEvidence).catch(() => undefined);
   }
 
+  async function runAiCopilot() {
+    const data = await getJson<AiAgentResult>("/api/ai/agent", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ prompt: aiPrompt, risk, maxTradeUsd, platforms: [platform], tabs: [tab], theme: basketTheme })
+    });
+    setAiAgent(data);
+    getJson<Evidence>("/api/evidence").then(setEvidence).catch(() => undefined);
+  }
+
   useEffect(() => {
     refresh().then(() => runStrategy("balanced"));
   }, []);
@@ -553,6 +580,24 @@ export function App() {
                   <div><strong>Compact payload</strong><span>Recommendation, reason, confidence, required user action and transaction preview.</span></div>
                   <div><strong>Monitoring loop</strong><span>Schedule `/api/agent/recommend` and escalate only when spread, liquidity and risk rules pass.</span></div>
                   <div><strong>Evidence trail</strong><span>`/api/evidence` shows Binance modules, endpoints, status and latency for judge review.</span></div>
+                </div>
+                <div className="aiPanel">
+                  <div>
+                    <p className="eyebrow">AI agent</p>
+                    <h2>Live reasoning copilot</h2>
+                    <span>Uses live scanner, basket plan, watcher policy and readiness context. If no LLM key is configured, deterministic fallback stays active.</span>
+                  </div>
+                  <div className="agentPrompt">
+                    <input value={aiPrompt} onChange={(event) => setAiPrompt(event.target.value)} />
+                    <button onClick={runAiCopilot}>Run AI agent</button>
+                  </div>
+                  {aiAgent && (
+                    <div className="statusBox">
+                      <strong>{aiAgent.mode === "llm" ? `LLM ${aiAgent.model}` : "Deterministic fallback"}</strong>
+                      <span>{aiAgent.answer}</span>
+                      {aiAgent.error && <small>{aiAgent.error}</small>}
+                    </div>
+                  )}
                 </div>
                 <div className="agentPrompt">
                   <input value={agentPrompt} onChange={(event) => setAgentPrompt(event.target.value)} />
@@ -856,6 +901,7 @@ export function App() {
           <div><strong>Transaction API</strong><span>/gas-price + /gas-limit + /simulate</span></div>
           <div><strong>Wallet API</strong><span>/balance + /portfolio before trade</span></div>
           <div><strong>Agent endpoint</strong><span>/api/agent/recommend/compact</span></div>
+          <div><strong>AI agent</strong><span>/api/ai/agent live reasoning copilot</span></div>
           <div><strong>b402 hook</strong><span>/api/b402/manifest + /api/premium/signal</span></div>
           <div><strong>Basket engine</strong><span>/api/baskets/plan thematic allocations</span></div>
           <div><strong>Judge smoke</strong><span>/api/judge/readiness + /api/judge/smoke</span></div>

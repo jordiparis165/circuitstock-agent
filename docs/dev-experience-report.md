@@ -73,6 +73,7 @@ This directly targets the hackathon scoring mix: technical depth, product creati
 
 - `POST /api/agent/recommend/compact` returns a compact skill payload: recommendation, reason, confidence, required user action, transaction preview, cache status, and skills.
 - `POST /api/agent/interpret` accepts plain-language prompts and returns parsed intent, RWA research, optional execution preview, and a spoken summary.
+- `POST /api/ai/agent` adds an optional LLM reasoning layer using OpenAI Responses API when configured, with deterministic fallback when not configured.
 - `GET /api/b402/manifest` exposes a payment-gated agent route shape.
 - `POST /api/premium/signal` demonstrates a b402/x402-compatible `402 Payment Required` flow for premium monitoring. It is explicit demo mode and does not collect production payment.
 - `skills/circuitstock/SKILL.md` and `skills/circuitstock/skill.json` document `scan_tokenized_stock_spreads`, `prepare_rebalance`, `plain_language_stock_prompt`, and `premium_signal_demo`.
@@ -106,3 +107,4 @@ This directly targets the hackathon scoring mix: technical depth, product creati
 - Dry-run watcher: `GET /api/watcher/status` and `POST /api/watcher/tick`.
 - Thematic basket planner: `POST /api/baskets/plan`.
 - Judge smoke test: `GET /api/judge/smoke`.
+- AI reasoning copilot: `POST /api/ai/agent`.

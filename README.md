@@ -164,10 +164,11 @@ Invoke-RestMethod -Uri http://localhost:8787/api/agent/interpret -Method Post -C
 4. Click **Prepare execution** on an agent action.
 5. Review quote, official approval evidence, wallet checks, gas checks, research context, approval calldata, swap calldata, and simulation result.
 6. Open **Agent Studio** and run the prompt demo.
-7. In **Agent Studio**, inspect the dry-run watcher status and run a manual tick. It should either skip with a policy reason or return `would-execute`.
-8. Open **Baskets** and plan an AI Chips / Magnificent 7 / ETF / Buffett basket.
-9. Inspect `GET /api/judge/readiness`, `GET /api/judge/smoke`, `GET /api/b402/manifest`, and the demo `POST /api/premium/signal` route.
-10. Optionally try **Sign/copy approval** and **Sign/copy swap**. The app never broadcasts automatically.
+7. In **Agent Studio**, run the AI agent copilot. It uses OpenAI if `OPENAI_API_KEY` is configured, otherwise deterministic fallback.
+8. Inspect the dry-run watcher status and run a manual tick. It should either skip with a policy reason or return `would-execute`.
+9. Open **Baskets** and plan an AI Chips / Magnificent 7 / ETF / Buffett basket.
+10. Inspect `GET /api/judge/readiness`, `GET /api/judge/smoke`, `GET /api/b402/manifest`, and the demo `POST /api/premium/signal` route.
+11. Optionally try **Sign/copy approval** and **Sign/copy swap**. The app never broadcasts automatically.
 
 ## Local API
 
@@ -176,6 +177,7 @@ Invoke-RestMethod -Uri http://localhost:8787/api/agent/interpret -Method Post -C
 - `POST /api/agent/recommend` - agent-friendly recommendation payload for Wallet Skills / BNB Agent Studio.
 - `POST /api/agent/recommend/compact` - compact agent payload for skills and agent runtimes.
 - `POST /api/agent/interpret` - plain-language tokenized stock prompt parser and quote/research flow.
+- `POST /api/ai/agent` - optional LLM reasoning copilot grounded in live scanner, baskets, watcher and readiness context.
 - `POST /api/execution/prepare` - quote, official approval, wallet snapshot, research, gas checks, swap build, simulation, and unsigned tx payloads.
 - `GET /api/evidence` - sanitized evidence of Binance modules, endpoints, status and latency.
 - `GET /api/b402/manifest` - demo payment manifest for premium agent monitoring.
@@ -210,6 +212,7 @@ Last verified locally:
 - `/api/health` returns configured API status without exposing secrets.
 - `/api/execution/prepare` returns quote, official approval, approval calldata, swap calldata, wallet check, gas check, research check, simulation summary, and `broadcasted: false`.
 - `/api/agent/recommend/compact` returns a compact recommendation payload for agent runtimes.
+- `/api/ai/agent` returns LLM reasoning when `OPENAI_API_KEY` is configured and deterministic fallback otherwise.
 - `/api/b402/manifest` and `/api/premium/signal` expose the demo payment-gated agent shape.
 - `/api/watcher/status` and `/api/watcher/tick` expose the autonomous dry-run runtime.
 - `/api/baskets/plan` returns a no-broadcast thematic basket plan.

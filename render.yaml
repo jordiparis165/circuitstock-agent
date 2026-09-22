@@ -47,6 +47,8 @@ services:
         value: "50"
       - key: B402_DEMO_PRICE_USDC
         value: "0.10"
+      - key: OPENAI_MODEL
+        value: gpt-5
       - key: AUTO_ENABLED
         value: "false"
       - key: AUTO_MODE
@@ -74,6 +76,8 @@ services:
       - key: BINANCE_WEB3_API_KEY
         sync: false
       - key: BINANCE_WEB3_API_SECRET
+        sync: false
+      - key: OPENAI_API_KEY
         sync: false
       - key: AUTO_WALLET_ADDRESS
         sync: false

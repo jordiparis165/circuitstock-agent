@@ -47,6 +47,11 @@
       "name": "judge_smoke_test",
       "method": "GET",
       "path": "/api/judge/smoke"
+    },
+    {
+      "name": "ai_reasoning_copilot",
+      "method": "POST",
+      "path": "/api/ai/agent"
     }
   ],
   "safety": {

@@ -81,6 +81,25 @@ Call `GET /api/judge/smoke`.
 
 Use this for a single judge-facing verification call covering health, live market, basket engine, watcher, b402 hook and no-broadcast boundary.
 
+### ai_reasoning_copilot
+
+Call `POST /api/ai/agent`.
+
+Input:
+
+```json
+{
+  "prompt": "Given the live scanner and risk rules, what should we do next?",
+  "risk": "balanced",
+  "maxTradeUsd": 10,
+  "platforms": ["bstock"],
+  "tabs": [9],
+  "theme": "ai-chips"
+}
+```
+
+Use this when a natural-language judge or wallet agent wants a concise recommendation grounded in live scanner, basket, watcher and readiness context. If `OPENAI_API_KEY` is not configured, the tool returns a deterministic fallback instead of failing.
+
 ## Safety Rules
 
 - Never broadcast automatically.

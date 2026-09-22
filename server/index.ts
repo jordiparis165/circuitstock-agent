@@ -19,6 +19,7 @@ import {
   searchRwaToken,
   simulateEvmTransaction
 } from "./binanceWeb3";
+import { runAiAgent } from "./aiAgent";
 import { config } from "./env";
 import { setKilled, startWatcher, tick, watcherStatus, type WatcherDeps } from "./watcher";
 import { getToken, quoteTokens, tokenRegistry } from "./tokenRegistry";
@@ -50,6 +51,7 @@ app.get("/", (_req, res) => {
     health: "/api/health",
     evidence: "/api/evidence",
     agent: "/api/agent/recommend/compact",
+    aiAgent: "/api/ai/agent",
     watcher: "/api/watcher/status",
     baskets: "/api/baskets",
     readiness: "/api/judge/readiness",
@@ -625,6 +627,7 @@ function judgeReadiness() {
       { item: "RWA scan -> quote -> approval -> swap -> simulation flow", status: "ready" },
       { item: "No automatic broadcast", status: "ready" },
       { item: "Wallet Skills spec", status: "ready" },
+      { item: "LLM AI agent endpoint with deterministic fallback", status: "ready" },
       { item: "Agent Studio dry-run watcher", status: "ready" },
       { item: "b402/x402 demo route", status: "ready" },
       { item: "DX report", status: "ready" },
@@ -990,6 +993,7 @@ app.get("/api/evidence", (_req, res) => {
       "Transaction API",
       "Wallet API",
       "Agent endpoint",
+      "LLM AI agent",
       "b402 payment hook",
       "Dry-run watcher",
       "Basket engine",
@@ -1008,6 +1012,7 @@ app.get("/api/evidence", (_req, res) => {
       gasPrice: config.gasPricePath,
       gasLimit: config.gasLimitPath,
       walletBalances: config.walletAllBalancesPath,
+      aiAgent: "/api/ai/agent",
       b402Manifest: "/api/b402/manifest",
       premiumSignal: "/api/premium/signal",
       watcherStatus: "/api/watcher/status",
@@ -1122,6 +1127,51 @@ app.post("/api/premium/signal", async (req, res) => {
     },
     opportunities
   });
+});
+
+app.post("/api/ai/agent", async (req, res) => {
+  const prompt = String(req.body?.prompt ?? "What should CircuitStock do next?");
+  const risk = req.body?.risk === "aggressive" ? "aggressive" : "balanced";
+  const maxTradeUsd = Number(req.body?.maxTradeUsd ?? 10);
+  const platforms = normalizePlatforms(req.body?.platforms);
+  const tabs = normalizeTabs(req.body?.tabs);
+  try {
+    let { cacheStatus, tokens } = await fetchRwaTokens(platforms, tabs);
+    let opportunities = tokensToOpportunities(tokens).slice(0, 8);
+    if (opportunities.length === 0 && tabs.length > 0) {
+      const expanded = await fetchRwaTokens(platforms, []);
+      cacheStatus = expanded.cacheStatus;
+      opportunities = tokensToOpportunities(expanded.tokens).slice(0, 8);
+    }
+    const basket = await buildBasketPlan(req.body?.theme ?? "ai-chips", maxTradeUsd * 2, platforms, risk);
+    const result = await runAiAgent({
+      prompt,
+      opportunities,
+      basket: {
+        theme: basket.theme,
+        label: basket.label,
+        summary: basket.summary,
+        legs: basket.legs.slice(0, 5)
+      },
+      watcher: watcherStatus(),
+      readiness: judgeReadiness()
+    });
+    res.json({
+      ...result,
+      cacheStatus,
+      context: {
+        opportunities,
+        basket: {
+          theme: basket.theme,
+          summary: basket.summary,
+          legs: basket.legs.slice(0, 5)
+        }
+      }
+    });
+  } catch (error) {
+    const typedError = error as Error & { status?: number; body?: string };
+    res.status(typedError.status ?? 500).json({ ok: false, error: normalizeApiError(typedError) });
+  }
 });
 
 app.post("/api/agent/interpret", async (req, res) => {
