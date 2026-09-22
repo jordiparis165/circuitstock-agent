@@ -717,16 +717,8 @@ async function prepareExecution(
 
   const researchCalls = await Promise.allSettled([
     measured("Market API", config.marketCandlesPath, token.symbol, () => getMarketCandles(token.address)),
-    token.underlyingTicker
-      ? measured("RWA Data API", config.rwaUnderlyingProfilePath, token.underlyingTicker, () =>
-          getRwaUnderlyingProfile(token.underlyingTicker!)
-        )
-      : Promise.resolve(null),
-    token.underlyingTicker
-      ? measured("RWA Data API", config.rwaUnderlyingMarketPath, token.underlyingTicker, () =>
-          getRwaUnderlyingMarket(token.underlyingTicker!)
-        )
-      : Promise.resolve(null)
+    measured("RWA Data API", config.rwaUnderlyingProfilePath, token.symbol, () => getRwaUnderlyingProfile(token.address)),
+    measured("RWA Data API", config.rwaUnderlyingMarketPath, token.symbol, () => getRwaUnderlyingMarket(token.address))
   ]);
   candles = researchCalls[0].status === "fulfilled" ? researchCalls[0].value : null;
   underlyingProfile = researchCalls[1].status === "fulfilled" ? researchCalls[1].value : null;
@@ -945,16 +937,8 @@ app.get("/api/research/:symbol", async (req, res) => {
 
   const [candles, profile, market] = await Promise.allSettled([
     measured("Market API", config.marketCandlesPath, token.symbol, () => getMarketCandles(token.address)),
-    token.underlyingTicker
-      ? measured("RWA Data API", config.rwaUnderlyingProfilePath, token.underlyingTicker, () =>
-          getRwaUnderlyingProfile(token.underlyingTicker!)
-        )
-      : Promise.resolve(null),
-    token.underlyingTicker
-      ? measured("RWA Data API", config.rwaUnderlyingMarketPath, token.underlyingTicker, () =>
-          getRwaUnderlyingMarket(token.underlyingTicker!)
-        )
-      : Promise.resolve(null)
+    measured("RWA Data API", config.rwaUnderlyingProfilePath, token.symbol, () => getRwaUnderlyingProfile(token.address)),
+    measured("RWA Data API", config.rwaUnderlyingMarketPath, token.symbol, () => getRwaUnderlyingMarket(token.address))
   ]);
 
   const candleData = candles.status === "fulfilled" ? candles.value : null;
@@ -1154,16 +1138,12 @@ app.post("/api/agent/interpret", async (req, res) => {
   const research = token
     ? {
         token,
-        profile: token.underlyingTicker
-          ? await measured("RWA Data API", config.rwaUnderlyingProfilePath, token.underlyingTicker, () =>
-              getRwaUnderlyingProfile(token.underlyingTicker!)
-            )
-          : null,
-        market: token.underlyingTicker
-          ? await measured("RWA Data API", config.rwaUnderlyingMarketPath, token.underlyingTicker, () =>
-              getRwaUnderlyingMarket(token.underlyingTicker!)
-            )
-          : null
+        profile: await measured("RWA Data API", config.rwaUnderlyingProfilePath, token.symbol, () =>
+          getRwaUnderlyingProfile(token.address)
+        ),
+        market: await measured("RWA Data API", config.rwaUnderlyingMarketPath, token.symbol, () =>
+          getRwaUnderlyingMarket(token.address)
+        )
       }
     : null;
   const execution = intent.researchOnly ? null : await prepareExecution(intent.symbol, intent.side, intent.amountUsd, walletAddress);

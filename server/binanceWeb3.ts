@@ -281,20 +281,20 @@ export async function searchRwaToken(keyword: string): Promise<BinanceCallResult
   );
 }
 
-export async function getRwaUnderlyingProfile(underlyingTicker: string): Promise<BinanceCallResult> {
+export async function getRwaUnderlyingProfile(tokenContractAddress: string): Promise<BinanceCallResult> {
   return toResult(config.rwaUnderlyingProfilePath, () =>
     callBinanceGet(config.rwaUnderlyingProfilePath, {
       binanceChainId: 56,
-      underlyingTicker
+      tokenContractAddress
     })
   );
 }
 
-export async function getRwaUnderlyingMarket(underlyingTicker: string): Promise<BinanceCallResult> {
+export async function getRwaUnderlyingMarket(tokenContractAddress: string): Promise<BinanceCallResult> {
   return toResult(config.rwaUnderlyingMarketPath, () =>
     callBinanceGet(config.rwaUnderlyingMarketPath, {
       binanceChainId: 56,
-      underlyingTicker
+      tokenContractAddress
     })
   );
 }
