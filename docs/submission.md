@@ -44,6 +44,8 @@ http://localhost:5173
 - `POST /api/agent/interpret` accepts plain-language stock-trading prompts and returns research or a no-broadcast execution preview.
 - `GET /api/b402/manifest` exposes the demo payment manifest for premium agent monitoring.
 - `POST /api/premium/signal` returns `402 Payment Required` unless the hackathon demo payment header is supplied.
+- `GET /api/watcher/status` exposes the dry-run autonomous runtime policy, kill switch, budget and latest decisions.
+- `POST /api/watcher/tick` runs one manual dry-run evaluation for judge review.
 - No automatic broadcast exists in the app.
 - `POST /api/agent/recommend` exposes the same logic for agent runtimes.
 
@@ -105,6 +107,18 @@ Input:
 ```
 
 Output: b402/x402-compatible demo payment response. With header `x-demo-payment: paid`, returns premium monitoring summary and top opportunities. This is demo mode, not production settlement.
+
+### `dry_run_watcher`
+
+Input: no body.
+
+Call:
+
+```text
+POST /api/watcher/tick
+```
+
+Output: policy decision and current watcher status. The watcher is intentionally dry-run by default, requires `AUTO_ALLOWED_SYMBOLS`, respects daily budget/cooldown/spread/liquidity rules, and refuses live mode until an executor is wired.
 
 ## Deployment
 

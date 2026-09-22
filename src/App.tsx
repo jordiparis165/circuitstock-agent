@@ -150,6 +150,35 @@ type AgentInterpretation = {
   execution?: ExecutionPreview | null;
 };
 
+type WatcherStatus = {
+  enabled: boolean;
+  running: boolean;
+  killed: boolean;
+  lastTickAt: string | null;
+  spentTodayUsd: number;
+  policy: {
+    mode: "dry-run" | "live";
+    intervalSec: number;
+    minSpreadBps: number;
+    minScore: number;
+    minLiquidityUsd: number;
+    maxTradeUsd: number;
+    maxDailyUsd: number;
+    maxSlippageBps: number;
+    cooldownSec: number;
+    allowedSymbols: string[];
+    walletAddress?: string;
+  };
+  decisions: Array<{
+    at: string;
+    symbol: string | null;
+    side: "buy" | "sell" | null;
+    amountUsd: number;
+    outcome: "would-execute" | "executed" | "skipped" | "idle" | "error";
+    reasons: string[];
+  }>;
+};
+
 type ViewId = "monitor" | "wallet" | "agent" | "risk";
 
 const API_BASE = (import.meta.env.VITE_API_BASE_URL ?? "").replace(/\/$/, "");
@@ -189,6 +218,8 @@ export function App() {
   const [agentReply, setAgentReply] = useState<AgentInterpretation | null>(null);
   const [firstStockSymbol, setFirstStockSymbol] = useState("TSLA");
   const [firstStockAmount, setFirstStockAmount] = useState(10);
+  const [watcher, setWatcher] = useState<WatcherStatus | null>(null);
+  const [watcherMessage, setWatcherMessage] = useState<string | null>(null);
 
   async function refresh() {
     setLoading(true);
@@ -201,6 +232,7 @@ export function App() {
     setMarketMode(marketData.mode);
     setCacheStatus(marketData.cacheStatus ?? "live");
     getJson<Evidence>("/api/evidence").then(setEvidence).catch(() => undefined);
+    getJson<WatcherStatus>("/api/watcher/status").then(setWatcher).catch(() => undefined);
     setLoading(false);
   }
 
@@ -311,6 +343,20 @@ export function App() {
     setAgentReply(data);
     if (data.execution) setPreview(data.execution);
     getJson<Evidence>("/api/evidence").then(setEvidence).catch(() => undefined);
+  }
+
+  async function watcherAction(action: "tick" | "kill" | "resume") {
+    const data = await getJson<{ decision?: WatcherStatus["decisions"][number]; status?: WatcherStatus } | WatcherStatus>(
+      action === "tick" ? "/api/watcher/tick" : `/api/watcher/${action}`,
+      { method: "POST" }
+    );
+    const nextStatus = "status" in data && data.status ? data.status : (data as WatcherStatus);
+    setWatcher(nextStatus);
+    if ("decision" in data && data.decision) {
+      setWatcherMessage(`${data.decision.outcome}: ${data.decision.reasons.join("; ")}`);
+    } else {
+      setWatcherMessage(action === "kill" ? "Kill switch enabled." : "Watcher resumed.");
+    }
   }
 
   useEffect(() => {
@@ -472,6 +518,37 @@ export function App() {
                     </span>
                   </div>
                 )}
+                <div className="watcherPanel">
+                  <div>
+                    <p className="eyebrow">Autonomous runtime</p>
+                    <h2>Dry-run watcher</h2>
+                    <span>
+                      Policy-gated monitor with whitelist, spread threshold, liquidity floor, daily budget, cooldown and kill switch. It refuses live execution until an executor is wired.
+                    </span>
+                  </div>
+                  <div className="watcherStats">
+                    <div><span>Status</span><strong>{watcher?.enabled ? (watcher.running ? "running" : "enabled") : "disabled"}</strong></div>
+                    <div><span>Mode</span><strong>{watcher?.policy.mode ?? "dry-run"}</strong></div>
+                    <div><span>Kill switch</span><strong>{watcher?.killed ? "on" : "off"}</strong></div>
+                    <div><span>Daily spent</span><strong>{currency.format(watcher?.spentTodayUsd ?? 0)}</strong></div>
+                    <div><span>Min spread</span><strong>{watcher?.policy.minSpreadBps ?? "--"} bps</strong></div>
+                    <div><span>Max trade</span><strong>{currency.format(watcher?.policy.maxTradeUsd ?? 0)}</strong></div>
+                  </div>
+                  <div className="watcherActions">
+                    <button onClick={() => watcherAction("tick")}>Run dry-run tick</button>
+                    <button onClick={() => watcherAction("kill")}>Kill</button>
+                    <button onClick={() => watcherAction("resume")}>Resume</button>
+                  </div>
+                  <div className="evidenceRows">
+                    {watcherMessage && <span><strong>Latest action</strong>{watcherMessage}</span>}
+                    {watcher?.decisions?.slice(0, 4).map((decision) => (
+                      <span key={`${decision.at}-${decision.symbol ?? "none"}`}>
+                        <strong>{decision.outcome} {decision.symbol ?? ""}</strong>
+                        {decision.reasons.join("; ")}
+                      </span>
+                    ))}
+                  </div>
+                </div>
               </>
             )}
             {activeView === "risk" && (

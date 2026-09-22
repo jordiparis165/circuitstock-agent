@@ -27,6 +27,16 @@ ERC-8183-style task:
 
 Output is the `/api/agent/recommend/compact` payload: recommendation, reason, confidence, required user action, transaction preview, and no-broadcast flag.
 
+## Autonomous Runtime
+
+CircuitStock now includes a policy-gated watcher intended to mirror the shape of a managed Agent Studio runtime:
+
+- `GET /api/watcher/status` shows enabled/running state, dry-run/live mode, kill switch, thresholds, budgets, whitelist and recent decisions.
+- `POST /api/watcher/tick` manually runs one monitor loop for judge review.
+- `POST /api/watcher/kill` and `POST /api/watcher/resume` control the kill switch.
+
+The runtime remains dry-run by default. It will only record `would-execute` after whitelist, spread, score, liquidity, daily budget, cooldown, wallet and simulation checks pass. If `AUTO_MODE=live`, it still refuses execution until a real Agentic Wallet executor is wired, so the safety boundary remains intact.
+
 ## Natural Language Tool
 
 `POST /api/agent/interpret`

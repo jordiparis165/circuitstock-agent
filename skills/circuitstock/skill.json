@@ -27,6 +27,16 @@
       "name": "premium_signal_demo",
       "method": "POST",
       "path": "/api/premium/signal"
+    },
+    {
+      "name": "dry_run_watcher_status",
+      "method": "GET",
+      "path": "/api/watcher/status"
+    },
+    {
+      "name": "dry_run_watcher_tick",
+      "method": "POST",
+      "path": "/api/watcher/tick"
     }
   ],
   "safety": {

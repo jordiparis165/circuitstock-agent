@@ -388,6 +388,8 @@ h2 {
 .quoteCards div,
 .simulationBox,
 .statusBox,
+.watcherPanel,
+.watcherStats div,
 .evidenceRows span {
   border: 1px solid #2b3139;
   border-radius: 8px;
@@ -754,6 +756,59 @@ h2 {
   font-weight: 850;
 }
 
+.watcherPanel {
+  display: grid;
+  gap: 12px;
+  padding: 14px;
+}
+
+.watcherPanel span,
+.watcherStats span {
+  color: #848e9c;
+}
+
+.watcherStats {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.watcherStats div {
+  padding: 10px;
+}
+
+.watcherStats span,
+.watcherStats strong {
+  display: block;
+}
+
+.watcherStats strong {
+  margin-top: 4px;
+  color: #f5f5f5;
+}
+
+.watcherActions {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.watcherActions button {
+  min-height: 38px;
+  border: 1px solid #2b3139;
+  border-radius: 8px;
+  color: #eaecef;
+  background: #0b0e11;
+  cursor: pointer;
+  font-weight: 850;
+}
+
+.watcherActions button:first-child {
+  color: #0b0e11;
+  border-color: #f0b90b;
+  background: #f0b90b;
+}
+
 .txVerifier input {
   min-width: 0;
   height: 40px;
@@ -845,7 +900,9 @@ h2 {
   .checklist,
   .txVerifier,
   .agentPrompt,
-  .firstStockControls {
+  .firstStockControls,
+  .watcherStats,
+  .watcherActions {
     grid-template-columns: 1fr;
   }
 }

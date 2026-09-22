@@ -53,5 +53,6 @@ Mention:
 - Agent-friendly `/api/agent/recommend`
 - Compact skill endpoint `/api/agent/recommend/compact`
 - Natural-language endpoint `/api/agent/interpret`
+- Dry-run watcher `/api/watcher/status` and `/api/watcher/tick`
 - b402 demo manifest `/api/b402/manifest`
 - ready path for Agentic Wallet / Wallet Skills and BNB Agent Studio

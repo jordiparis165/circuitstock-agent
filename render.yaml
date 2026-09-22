@@ -43,9 +43,37 @@ services:
         value: /api/v1/dex/market/portfolio/overview
       - key: BSC_RPC_URL
         value: https://bsc-dataseed.binance.org
+      - key: SLIPPAGE_BPS
+        value: "50"
       - key: B402_DEMO_PRICE_USDC
         value: "0.10"
+      - key: AUTO_ENABLED
+        value: "false"
+      - key: AUTO_MODE
+        value: dry-run
+      - key: AUTO_INTERVAL_SEC
+        value: "60"
+      - key: AUTO_MIN_SPREAD_BPS
+        value: "50"
+      - key: AUTO_MIN_SCORE
+        value: "35"
+      - key: AUTO_MIN_LIQUIDITY_USD
+        value: "100000"
+      - key: AUTO_MAX_TRADE_USD
+        value: "25"
+      - key: AUTO_MAX_DAILY_USD
+        value: "100"
+      - key: AUTO_MAX_SLIPPAGE_BPS
+        value: "50"
+      - key: AUTO_COOLDOWN_SEC
+        value: "900"
+      - key: AUTO_ALLOWED_SYMBOLS
+        value: ""
+      - key: AUTO_KILL
+        value: "false"
       - key: BINANCE_WEB3_API_KEY
         sync: false
       - key: BINANCE_WEB3_API_SECRET
+        sync: false
+      - key: AUTO_WALLET_ADDRESS
         sync: false

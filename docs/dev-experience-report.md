@@ -65,6 +65,7 @@ This directly targets the hackathon scoring mix: technical depth, product creati
 - The frontend shows a complete execution checklist: live RWA data, quote, wallet check, approval API, approval calldata, swap calldata, gas estimate, research context, simulation, user signature only, and no broadcast.
 - A "First stock flow" was added for non-crypto-native judges: pick TSLA/NVDA/MSFT/SPY, preview a buy, and see the same quote/simulate/sign boundary.
 - Agent endpoints reuse the same engine as the UI, so Wallet Skills and Agent Studio do not rely on a separate code path.
+- A dry-run watcher was added to demonstrate autonomous runtime behavior without crossing the signing/broadcast boundary. It has explicit whitelist, spread, score, liquidity, max trade, daily budget, slippage, cooldown and kill-switch controls.
 
 ## Agent Studio and b402/x402 Notes
 
@@ -73,6 +74,8 @@ This directly targets the hackathon scoring mix: technical depth, product creati
 - `GET /api/b402/manifest` exposes a payment-gated agent route shape.
 - `POST /api/premium/signal` demonstrates a b402/x402-compatible `402 Payment Required` flow for premium monitoring. It is explicit demo mode and does not collect production payment.
 - `skills/circuitstock/SKILL.md` and `skills/circuitstock/skill.json` document `scan_tokenized_stock_spreads`, `prepare_rebalance`, `plain_language_stock_prompt`, and `premium_signal_demo`.
+- `GET /api/watcher/status` and `POST /api/watcher/tick` expose the autonomous dry-run monitor that Agent Studio could run on a schedule.
+- Policy tests cover whitelist, daily budget and cooldown behavior with `npm run test`.
 
 ## Deployment Lessons
 
@@ -98,3 +101,4 @@ This directly targets the hackathon scoring mix: technical depth, product creati
 - Sanitized evidence endpoint: `GET /api/evidence`.
 - Payment hook manifest: `GET /api/b402/manifest`.
 - Demo payment route: `POST /api/premium/signal` with optional header `x-demo-payment: paid`.
+- Dry-run watcher: `GET /api/watcher/status` and `POST /api/watcher/tick`.

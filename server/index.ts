@@ -50,6 +50,7 @@ app.get("/", (_req, res) => {
     health: "/api/health",
     evidence: "/api/evidence",
     agent: "/api/agent/recommend/compact",
+    watcher: "/api/watcher/status",
     docs: "https://github.com/jordiparis165/circuitstock-agent"
   });
 });
@@ -886,7 +887,8 @@ app.get("/api/evidence", (_req, res) => {
       "Transaction API",
       "Wallet API",
       "Agent endpoint",
-      "b402 payment hook"
+      "b402 payment hook",
+      "Dry-run watcher"
     ],
     endpoints: {
       rwaTokens: config.rwaTokensPath,
@@ -902,7 +904,9 @@ app.get("/api/evidence", (_req, res) => {
       gasLimit: config.gasLimitPath,
       walletBalances: config.walletAllBalancesPath,
       b402Manifest: "/api/b402/manifest",
-      premiumSignal: "/api/premium/signal"
+      premiumSignal: "/api/premium/signal",
+      watcherStatus: "/api/watcher/status",
+      watcherTick: "/api/watcher/tick"
     },
     recentCalls: apiEvidence
   });

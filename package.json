@@ -8,6 +8,7 @@
     "dev:server": "tsx watch server/index.ts",
     "dev:web": "vite --host 0.0.0.0",
     "build": "tsc --noEmit && vite build",
+    "test": "tsx --test server/policy.test.ts",
     "preview": "vite preview --host 0.0.0.0",
     "start": "tsx server/index.ts"
   },

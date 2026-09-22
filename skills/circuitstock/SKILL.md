@@ -57,6 +57,18 @@ Call `POST /api/premium/signal`.
 
 This is a b402/x402-compatible demo route for Agent Studio commerce packaging. It returns `402 Payment Required` unless the hackathon demo header `x-demo-payment: paid` is supplied. It never broadcasts and should only be used to show how a paid monitoring tool would wrap the same signal engine.
 
+### dry_run_watcher_status
+
+Call `GET /api/watcher/status`.
+
+Use this to inspect the autonomous dry-run runtime: mode, kill switch, whitelist, spread threshold, liquidity floor, trade limits, daily budget, cooldown and recent decisions.
+
+### dry_run_watcher_tick
+
+Call `POST /api/watcher/tick`.
+
+Use this to run one manual monitor iteration. A valid result is `would-execute`, `skipped`, `idle`, or `error`; it never broadcasts.
+
 ## Safety Rules
 
 - Never broadcast automatically.

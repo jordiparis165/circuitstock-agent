@@ -164,8 +164,9 @@ Invoke-RestMethod -Uri http://localhost:8787/api/agent/interpret -Method Post -C
 4. Click **Prepare execution** on an agent action.
 5. Review quote, official approval evidence, wallet checks, gas checks, research context, approval calldata, swap calldata, and simulation result.
 6. Open **Agent Studio** and run the prompt demo.
-7. Inspect `GET /api/b402/manifest` and the demo `POST /api/premium/signal` route.
-8. Optionally try **Sign/copy approval** and **Sign/copy swap**. The app never broadcasts automatically.
+7. In **Agent Studio**, inspect the dry-run watcher status and run a manual tick. It should either skip with a policy reason or return `would-execute`.
+8. Inspect `GET /api/b402/manifest` and the demo `POST /api/premium/signal` route.
+9. Optionally try **Sign/copy approval** and **Sign/copy swap**. The app never broadcasts automatically.
 
 ## Local API
 
@@ -178,6 +179,9 @@ Invoke-RestMethod -Uri http://localhost:8787/api/agent/interpret -Method Post -C
 - `GET /api/evidence` - sanitized evidence of Binance modules, endpoints, status and latency.
 - `GET /api/b402/manifest` - demo payment manifest for premium agent monitoring.
 - `POST /api/premium/signal` - b402/x402-shaped `402 Payment Required` demo route; send `x-demo-payment: paid` for hackathon demo mode.
+- `GET /api/watcher/status` - dry-run autonomous watcher status, policy and recent decisions.
+- `POST /api/watcher/tick` - manually run one policy-gated dry-run tick.
+- `POST /api/watcher/kill`, `POST /api/watcher/resume` - judge-visible kill switch controls.
 - `GET /api/rwa/platforms`, `GET /api/rwa/search?q=TSLA` - platform discovery and ticker resolution.
 - `GET /api/research/:symbol` - candles, volatility, underlying profile and market context.
 - `GET /api/wallet/:address` - balance and portfolio checks.
@@ -204,7 +208,9 @@ Last verified locally:
 - `/api/execution/prepare` returns quote, official approval, approval calldata, swap calldata, wallet check, gas check, research check, simulation summary, and `broadcasted: false`.
 - `/api/agent/recommend/compact` returns a compact recommendation payload for agent runtimes.
 - `/api/b402/manifest` and `/api/premium/signal` expose the demo payment-gated agent shape.
+- `/api/watcher/status` and `/api/watcher/tick` expose the autonomous dry-run runtime.
 - `/api/evidence` records recent Binance Web3 modules/endpoints with latency.
+- `npm run test` covers policy whitelist, daily budget and cooldown checks.
 
 ## Deploy
 
