@@ -20,9 +20,10 @@ Live API: https://circuitstock-agent-api.onrender.com
 
 ## What Exists Now
 
-- Dense Vite/React dashboard for judges, including a dedicated **Judge Mode** proof center.
+- Page-per-page Vite/React dashboard (Monitor, Wallet Skills, Agent Studio, Baskets, Risk Rules, Judge Mode), each with its own URL via `react-router-dom`.
 - Express API server with signed Binance Web3 requests.
-- Live RWA spread scanner for bStocks/Ondo categories.
+- Live RWA spread scanner with a Platform filter: bStocks, Ondo, All (merges every enabled platform), and xStocks (disabled in the UI until `BINANCE_WEB3_RWA_XSTOCK_PLATFORM_ID` is confirmed and set - see Environment below). Sector/tab filtering only applies within bStocks' own catalog tabs.
+- Wallet connect state stays in sync automatically: it picks up an already-authorized wallet on load and reacts live to account switches or disconnects made from the wallet extension itself.
 - Agent recommendation engine with risk and max trade controls.
 - End-to-end prepare flow:
   - RWA token scan.
@@ -44,7 +45,12 @@ Live API: https://circuitstock-agent-api.onrender.com
 
 ## Project Map
 
-- `src/App.tsx` - main dashboard UI, wallet connect, signing buttons, evidence panel.
+- `src/App.tsx` - route definitions (Monitor, Wallet Skills, Agent Studio, Baskets, Risk Rules, Judge Mode).
+- `src/components/Layout.tsx` - sidebar, top bar, shared market/wallet state, wallet connect/auto-sync.
+- `src/components/NumberStepper.tsx` - reusable +/- amount input used across pages.
+- `src/lib/api.ts` - shared types, `API_BASE`, `getJson` fetch helper, formatters.
+- `src/lib/shell.ts` - typed `useOutletContext` hook pages use to read/update shared state.
+- `src/pages/*.tsx` - one file per page, each owning only the state/data it displays.
 - `src/styles.css` - dashboard/mobile styling.
 - `server/index.ts` - Express routes, strategy engine, execution prepare flow.
 - `server/binanceWeb3.ts` - signed Binance Web3 API client and endpoint helpers.
@@ -85,6 +91,9 @@ BINANCE_WEB3_MARKET_CANDLES_PATH=/api/v1/dex/market/candles
 BINANCE_WEB3_WALLET_ALL_BALANCES_PATH=/api/v1/dex/balance/all-token-balances-by-address
 BINANCE_WEB3_WALLET_PORTFOLIO_OVERVIEW_PATH=/api/v1/dex/market/portfolio/overview
 BSC_RPC_URL=https://bsc-dataseed.binance.org
+# The RWA Data API's platformId for xStocks isn't confirmed yet. Set it once verified via
+# GET /api/rwa/platforms; until then the xStocks filter stays disabled in the UI.
+BINANCE_WEB3_RWA_XSTOCK_PLATFORM_ID=
 VITE_API_BASE_URL=
 BSC_USDC_ADDRESS=
 AAPLX_ADDRESS=
@@ -162,23 +171,24 @@ Invoke-RestMethod -Uri http://localhost:8787/api/agent/interpret -Method Post -C
 
 ## Judge Flow
 
-1. Open the dashboard and confirm `mode: live` via the opportunity scanner.
-2. Connect an injected wallet and switch to BNB Smart Chain.
-3. Use **First stock flow** to preview a small TSLA/NVDA/MSFT/SPY buy.
+1. Open **Monitor** (`/`) and confirm `mode: live` via the opportunity scanner. Try the Platform filter (bStocks / Ondo / All).
+2. Connect an injected wallet from the top bar and switch to BNB Smart Chain.
+3. On **Monitor**, use **First stock flow** to preview a small TSLA/NVDA/MSFT/SPY buy.
 4. Click **Prepare execution** on an agent action.
-5. Review quote, official approval evidence, wallet checks, gas checks, research context, approval calldata, swap calldata, and simulation result.
-6. Open **Judge Mode**, run **Run smoke test**, then run **Run BSC proof**.
-7. Copy the submission bundle for the hackathon form.
-8. Open **Agent Studio** and run the prompt demo.
-9. In **Agent Studio**, run the AI agent copilot. It uses OpenAI if `OPENAI_API_KEY` is configured, otherwise deterministic fallback.
-10. Inspect the dry-run watcher status and run a manual tick. It should either skip with a policy reason or return `would-execute`.
-11. Open **Baskets** and plan an AI Chips / Magnificent 7 / ETF / Buffett basket.
-12. Inspect `GET /api/judge/readiness`, `GET /api/judge/smoke`, `GET /api/b402/manifest`, and the demo `POST /api/premium/signal` route.
-13. Optionally try **Sign/copy approval** and **Sign/copy swap**. The app never broadcasts automatically.
+5. Review quote, official approval evidence, wallet checks, gas checks, research context, approval calldata, swap calldata, and simulation result (still on **Monitor**).
+6. Open **Judge Mode** (`/judge`), run **Run smoke test**, then run **Run BSC proof**.
+7. Copy the submission bundle for the hackathon form (also on **Judge Mode**).
+8. Open **Agent Studio** (`/agent`) and run the prompt demo.
+9. On **Agent Studio**, run the AI agent copilot. It uses OpenAI if `OPENAI_API_KEY` is configured, otherwise deterministic fallback.
+10. On **Agent Studio**, load the dry-run watcher status and run a manual tick. It should either skip with a policy reason or return `would-execute`.
+11. Open **Baskets** (`/baskets`) and plan an AI Chips / Magnificent 7 / ETF / Buffett basket.
+12. Open **Wallet Skills** (`/wallet`) to inspect the skill payload shapes and the live BSC RPC wallet readiness proof.
+13. Inspect `GET /api/judge/readiness`, `GET /api/judge/smoke`, `GET /api/b402/manifest`, and the demo `POST /api/premium/signal` route.
+14. Optionally try **Sign/copy approval** and **Sign/copy swap** on Monitor. The app never broadcasts automatically.
 
 ## Local API
 
-- `GET /api/market` - live opportunity scanner with RWA prices and spreads.
+- `GET /api/market?platform=bstock|ondo|xstock|all&tab=<id>` - live opportunity scanner with RWA prices and spreads. `platform=all` merges every enabled platform; `tab` only applies to the bStocks slice.
 - `POST /api/strategy` - ranked live actions for the UI.
 - `POST /api/agent/recommend` - agent-friendly recommendation payload for Wallet Skills / BNB Agent Studio.
 - `POST /api/agent/recommend/compact` - compact agent payload for skills and agent runtimes.

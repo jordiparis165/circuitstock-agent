@@ -239,10 +239,24 @@ function toMarketWindow(token: RwaToken): MarketQuote["marketWindow"] {
   return "closed";
 }
 
-async function getLiveMarket(): Promise<{ cacheStatus: CacheStatus; quotes: MarketQuote[] }> {
-  const { cacheStatus, tokens } = await fetchRwaTokens(["bstock"], [9]);
+async function getLiveMarket(platforms: string[], tabs: number[]): Promise<{ cacheStatus: CacheStatus; quotes: MarketQuote[] }> {
+  const { cacheStatus, tokens } = await fetchMarketTokens(platforms, tabs);
 
-  return { cacheStatus, quotes: tokensToOpportunities(tokens).slice(0, 8) };
+  // Multi-platform ("All") previews get a few extra rows so each source has a fair shot at showing up.
+  return { cacheStatus, quotes: tokensToOpportunities(tokens).slice(0, platforms.length > 1 ? 12 : 8) };
+}
+
+// Sector/tab is a bStocks-only categorization; when other platforms are mixed in (e.g. the "All"
+// preview) it only gets applied to the bStocks slice so it doesn't wrongly filter Ondo/xStocks.
+async function fetchMarketTokens(platforms: string[], tabs: number[]): Promise<RwaTokenResult> {
+  const otherPlatforms = platforms.filter((platform) => platform !== "bstock");
+  const [bstockResult, otherResult] = await Promise.all([
+    platforms.includes("bstock") ? fetchRwaTokens(["bstock"], tabs) : Promise.resolve<RwaTokenResult>({ cacheStatus: "live", tokens: [] }),
+    otherPlatforms.length > 0 ? fetchRwaTokens(otherPlatforms, []) : Promise.resolve<RwaTokenResult>({ cacheStatus: "live", tokens: [] })
+  ]);
+  const statuses = [bstockResult.cacheStatus, otherResult.cacheStatus];
+  const cacheStatus: CacheStatus = statuses.includes("fallback") ? "fallback" : statuses.includes("cached") ? "cached" : "live";
+  return { cacheStatus, tokens: [...bstockResult.tokens, ...otherResult.tokens] };
 }
 
 async function fetchRwaTokens(platforms = ["bstock"], tabs = [9]): Promise<RwaTokenResult> {
@@ -251,7 +265,8 @@ async function fetchRwaTokens(platforms = ["bstock"], tabs = [9]): Promise<RwaTo
   if (cached && cached.expiresAt > Date.now()) return { cacheStatus: "cached", tokens: cached.tokens };
 
   const tabFilters = tabs.length > 0 ? tabs : [undefined];
-  const calls = platforms.flatMap((platformId) =>
+  const apiPlatformIds = platforms.map((platformKey) => PLATFORM_API_IDS[platformKey]).filter((value): value is string => Boolean(value));
+  const calls = apiPlatformIds.flatMap((platformId) =>
     tabFilters.map((tabId) =>
       measured("RWA Data API", config.rwaTokensPath, `platform=${platformId} tab=${tabId ?? "all"}`, () =>
         callBinanceGet<{ data?: RwaToken[] }>(config.rwaTokensPath, {
@@ -267,7 +282,7 @@ async function fetchRwaTokens(platforms = ["bstock"], tabs = [9]): Promise<RwaTo
     responses = await Promise.all(calls);
   } catch (error) {
     if (cached) return { cacheStatus: "cached", tokens: cached.tokens };
-    return { cacheStatus: "fallback", tokens: fallbackRwaTokens() };
+    return { cacheStatus: "fallback", tokens: fallbackRwaTokens().filter((token) => apiPlatformIds.includes(token.platformId)) };
   }
   const seen = new Set<string>();
   const tokens = responses.flatMap((response) => response.data ?? []).filter((token) => {
@@ -286,7 +301,8 @@ function fallbackRwaTokens(): RwaToken[] {
     const onchainPrice = jitter(quote.onchainPrice, quote.symbol);
     return {
       tokenContractAddress: token?.address ?? `0x${crypto.createHash("sha256").update(quote.symbol).digest("hex").slice(0, 40)}`,
-      platformId: quote.tokenSource === "Ondo" ? "ondo" : "bstock",
+      platformId:
+        quote.tokenSource === "Ondo" ? "ondo" : quote.tokenSource === "xStocks" ? PLATFORM_API_IDS.xstock ?? "bstock" : "bstock",
       tokenName: quote.name,
       tokenSymbol: quote.symbol,
       decimals: String(token?.decimals ?? 18),
@@ -316,7 +332,7 @@ function tokensToOpportunities(tokens: RwaToken[]): Opportunity[] {
       return {
         symbol: token.tokenSymbol,
         name: token.underlyingName || token.tokenName,
-        tokenSource: (token.platformId === "ondo" ? "Ondo" : "bStocks") as MarketQuote["tokenSource"],
+        tokenSource: platformSourceLabel(token.platformId),
         onchainPrice,
         referencePrice,
         spreadBps,
@@ -358,7 +374,7 @@ async function getTokenBySymbol(
     const inferredTicker = local.symbol.replace(/B$/i, "").replace(/x$/i, "");
     return { symbol: local.symbol, address: local.address, decimals: local.decimals, name: local.name, underlyingTicker: inferredTicker };
   }
-  const { tokens } = await fetchRwaTokens(["bstock", "ondo"], [9, 4, 11]);
+  const { tokens } = await fetchRwaTokens(SUPPORTED_PLATFORMS, [9, 4, 11]);
   const found = tokens.find((token) => token.tokenSymbol.toLowerCase() === symbol.toLowerCase());
   if (!found) return null;
   return {
@@ -370,14 +386,44 @@ async function getTokenBySymbol(
   };
 }
 
+// Internal platform keys used across the UI/API params, mapped to the platformId value the
+// Binance Web3 RWA Data API actually expects. bstock/ondo are 1:1; xstock is only enabled once
+// BINANCE_WEB3_RWA_XSTOCK_PLATFORM_ID is confirmed and set (see server/env.ts).
+const PLATFORM_API_IDS: Record<string, string | undefined> = {
+  bstock: "bstock",
+  ondo: "ondo",
+  xstock: config.rwaXstockPlatformId
+};
+
+const SUPPORTED_PLATFORMS = Object.keys(PLATFORM_API_IDS).filter((key) => Boolean(PLATFORM_API_IDS[key]));
+
+function platformSourceLabel(platformId: string): MarketQuote["tokenSource"] {
+  if (platformId === PLATFORM_API_IDS.ondo) return "Ondo";
+  if (platformId === PLATFORM_API_IDS.xstock) return "xStocks";
+  return "bStocks";
+}
+
+function toArray(input: unknown): unknown[] {
+  if (Array.isArray(input)) return input;
+  if (typeof input === "string" && input.length > 0) return input.split(",");
+  if (input === undefined || input === null) return [];
+  return [input];
+}
+
 function normalizePlatforms(input: unknown): string[] {
-  if (!Array.isArray(input) || input.length === 0) return ["bstock"];
-  return input.map(String).filter((platform) => ["bstock", "ondo"].includes(platform));
+  const raw = toArray(input)
+    .map(String)
+    .map((value) => value.trim().toLowerCase());
+  if (raw.includes("all")) return [...SUPPORTED_PLATFORMS];
+  const values = raw.filter((platform) => SUPPORTED_PLATFORMS.includes(platform));
+  return values.length > 0 ? values : ["bstock"];
 }
 
 function normalizeTabs(input: unknown): number[] {
-  if (!Array.isArray(input) || input.length === 0) return [9, 4, 11];
-  return input.map(Number).filter((tab) => Number.isInteger(tab) && tab > 0);
+  const values = toArray(input)
+    .map(Number)
+    .filter((tab) => Number.isInteger(tab) && tab > 0);
+  return values.length > 0 ? values : [9, 4, 11];
 }
 
 function parsePlainLanguageIntent(text: string) {
@@ -842,13 +888,18 @@ app.get("/api/health", (_req, res) => {
     quotePathConfigured: Boolean(config.quotePath),
     quotePath: config.quotePath,
     baseUrl: config.baseUrl,
-    bscRpcUrl: config.bscRpcUrl
+    bscRpcUrl: config.bscRpcUrl,
+    supportedPlatforms: SUPPORTED_PLATFORMS
   });
 });
 
-app.get("/api/market", async (_req, res) => {
+app.get("/api/market", async (req, res) => {
+  const platforms = normalizePlatforms(req.query.platform ?? req.query.platforms);
+  // Sector/tab only means something within bStocks' own catalog tabs; fetchMarketTokens only
+  // applies it to the bStocks slice so Ondo/xStocks aren't filtered by a taxonomy that doesn't apply to them.
+  const tabs = normalizeTabs(req.query.tab ?? req.query.tabs);
   try {
-    const liveMarket = await getLiveMarket();
+    const liveMarket = await getLiveMarket(platforms, tabs);
     res.json({
       mode: "live",
       cacheStatus: liveMarket.cacheStatus,
@@ -862,7 +913,7 @@ app.get("/api/market", async (_req, res) => {
     res.json({
       mode: "fallback",
       cacheStatus: "fallback",
-      quotes: getQuotes(),
+      quotes: getQuotes().filter((quote) => platforms.includes(quote.tokenSource === "Ondo" ? "ondo" : quote.tokenSource === "xStocks" ? "xstock" : "bstock")),
       tokens: tokenRegistry,
       updatedAt: new Date().toISOString(),
       error: normalized
@@ -1057,7 +1108,7 @@ app.get("/api/judge/smoke", async (_req, res) => {
   const checks: Array<{ name: string; ok: boolean; detail?: unknown }> = [];
   checks.push({ name: "health", ok: Boolean(config.apiKey && config.apiSecret), detail: { baseUrl: config.baseUrl } });
   try {
-    const market = await getLiveMarket();
+    const market = await getLiveMarket(["bstock"], [9]);
     checks.push({ name: "market", ok: market.quotes.length > 0, detail: { cacheStatus: market.cacheStatus, count: market.quotes.length } });
   } catch (error) {
     checks.push({ name: "market", ok: false, detail: normalizeApiError(error as Error & { status?: number; body?: string }) });
@@ -1477,7 +1528,7 @@ app.post("/api/strategy", async (req, res) => {
 
 const watcherDeps: WatcherDeps = {
   fetchOpportunities: async () => {
-    const { tokens } = await fetchRwaTokens(["bstock", "ondo"], []);
+    const { tokens } = await fetchRwaTokens(SUPPORTED_PLATFORMS, []);
     return tokensToOpportunities(tokens);
   },
   prepare: (symbol, side, amountUsd, walletAddress, slippageBps) =>

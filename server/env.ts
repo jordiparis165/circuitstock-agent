@@ -65,7 +65,10 @@ export const config = {
   walletPortfolioOverviewPath:
     pickEnv(["BINANCE_WEB3_WALLET_PORTFOLIO_OVERVIEW_PATH"]) ?? "/api/v1/dex/market/portfolio/overview",
   slippageBps: Number(pickEnv(["SLIPPAGE_BPS"])) || undefined,
-  bscRpcUrl: pickEnv(["BSC_RPC_URL"]) ?? "https://bsc-dataseed.binance.org"
+  bscRpcUrl: pickEnv(["BSC_RPC_URL"]) ?? "https://bsc-dataseed.binance.org",
+  // The RWA Data API's platformId for xStocks isn't confirmed yet. Set BINANCE_WEB3_RWA_XSTOCK_PLATFORM_ID
+  // once verified via GET /api/rwa/platforms; until then xStocks stays unavailable as a live filter.
+  rwaXstockPlatformId: pickEnv(["BINANCE_WEB3_RWA_XSTOCK_PLATFORM_ID"])
 };
 
 export function maskSecret(value?: string): string | null {
