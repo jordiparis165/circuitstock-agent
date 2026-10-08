@@ -1,0 +1,38 @@
+{
+  "ts": 1791486000,
+  "mode": "paper",
+  "market": {
+    "open": true,
+    "state": "regular",
+    "next_open": 1791466200,
+    "next_close": 1899999999
+  },
+  "pairs": [
+    {
+      "ticker": "AAPL",
+      "chain": "56",
+      "a": {
+        "platform": "ondo",
+        "address": "0x1111111111111111111111111111111111111111",
+        "price_per_share": "229.10",
+        "price_age_s": 21,
+        "liquidity_usd": "550000"
+      },
+      "b": {
+        "platform": "bstock",
+        "address": "0x2222222222222222222222222222222222222222",
+        "price_per_share": "231.25",
+        "price_age_s": 18,
+        "liquidity_usd": "710000"
+      },
+      "gross_spread_pct": "0.9384",
+      "reference": {
+        "price": "230.20",
+        "source": "alpaca",
+        "age_s": 3,
+        "premium_pct": "0.45"
+      }
+    }
+  ]
+}
+

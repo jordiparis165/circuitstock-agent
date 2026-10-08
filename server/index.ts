@@ -27,6 +27,9 @@ import { getPolicy, updatePolicy } from "./policy";
 import { getReferencePrices, referencePriceProvidersConfigured, startAlpacaStream, type ReferencePrice } from "./referencePrice";
 import { computeSpread, isOutlier, isTradeable, normalizePerSharePrice, parseCandleCloses } from "./spread";
 import { getToken, quoteTokens, tokenRegistry } from "./tokenRegistry";
+import { loadSampleSnapshot } from "./agent/fixtures";
+import { recentDecisions } from "./agent/ledger";
+import { runAgentCycle } from "./agent/runner";
 import universeData from "../config/universe.json" with { type: "json" };
 
 const app = express();
@@ -56,6 +59,7 @@ app.get("/", (_req, res) => {
     health: "/api/health",
     evidence: "/api/evidence",
     agent: "/api/agent/recommend/compact",
+    agentPartB: "/api/agent/part-b/run",
     aiAgent: "/api/ai/agent",
     watcher: "/api/watcher/status",
     walletReadiness: "/api/wallet/readiness/:address",
@@ -64,6 +68,31 @@ app.get("/", (_req, res) => {
     smoke: "/api/judge/smoke",
     docs: "https://github.com/jordiparis165/circuitstock-agent"
   });
+});
+
+app.get("/api/agent/part-b/ledger", (req, res) => {
+  res.json({
+    ok: true,
+    mode: process.env.TRADING_MODE === "live" ? "live-disabled-by-guardrail" : "paper",
+    decisions: recentDecisions(Number(req.query.limit) || 25)
+  });
+});
+
+app.post("/api/agent/part-b/run", async (req, res) => {
+  try {
+    const snapshot = req.body?.snapshot ?? loadSampleSnapshot();
+    const decision = await runAgentCycle({
+      snapshot,
+      requestId: req.body?.requestId,
+      spentTodayUsd: req.body?.spentTodayUsd,
+      openExposureUsd: req.body?.openExposureUsd,
+      inFlightPairs: req.body?.inFlightPairs,
+      lastTradeAtByPair: req.body?.lastTradeAtByPair
+    });
+    res.json({ ok: true, decision });
+  } catch (error) {
+    res.status(400).json({ ok: false, error: error instanceof Error ? error.message : "Agent Part B failed." });
+  }
 });
 
 type MarketQuote = {
