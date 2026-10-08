@@ -10,6 +10,8 @@ function ledgerPath(): string {
 }
 
 export function appendDecision(decision: AgentDecision): AgentDecision {
+  const existing = findDecisionByRequestId(decision.requestId);
+  if (existing) return existing;
   memoryLedger.push(decision);
   memoryLedger.splice(0, Math.max(0, memoryLedger.length - 200));
   try {
@@ -23,6 +25,28 @@ export function appendDecision(decision: AgentDecision): AgentDecision {
 }
 
 export function recentDecisions(limit = 25): AgentDecision[] {
-  return memoryLedger.slice(-limit).reverse();
+  const persisted = readPersistedDecisions();
+  const byId = new Map<string, AgentDecision>();
+  for (const decision of [...persisted, ...memoryLedger]) byId.set(decision.requestId, decision);
+  return [...byId.values()]
+    .sort((a, b) => a.at.localeCompare(b.at))
+    .slice(-limit)
+    .reverse();
 }
 
+export function findDecisionByRequestId(requestId?: string): AgentDecision | undefined {
+  if (!requestId) return undefined;
+  return [...memoryLedger, ...readPersistedDecisions()].find((decision) => decision.requestId === requestId);
+}
+
+function readPersistedDecisions(): AgentDecision[] {
+  try {
+    return fs
+      .readFileSync(ledgerPath(), "utf8")
+      .split(/\r?\n/)
+      .filter(Boolean)
+      .map((line) => JSON.parse(line) as AgentDecision);
+  } catch {
+    return [];
+  }
+}

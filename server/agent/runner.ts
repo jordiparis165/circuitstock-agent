@@ -1,9 +1,10 @@
 import crypto from "node:crypto";
 import { loadAgentConfig } from "./config";
 import { validateIntent } from "./guardrails";
-import { appendDecision } from "./ledger";
+import { appendDecision, findDecisionByRequestId } from "./ledger";
 import { MockLlmClient } from "./llmClient";
 import { marketAction } from "./marketState";
+import { assertIntent, assertSnapshot } from "./schema";
 import { findRotationOpportunity } from "./strategy";
 import type { AgentDecision, AgentSnapshot, LlmClient } from "./types";
 
@@ -16,13 +17,16 @@ export async function runAgentCycle(input: {
   inFlightPairs?: string[];
   lastTradeAtByPair?: Record<string, number>;
 }): Promise<AgentDecision> {
+  const existing = findDecisionByRequestId(input.requestId);
+  if (existing) return existing;
+  const snapshot = assertSnapshot(input.snapshot);
   const config = loadAgentConfig();
   const llm = input.llm ?? new MockLlmClient();
-  const action = marketAction(input.snapshot);
-  const opportunity = action === "rotate" ? findRotationOpportunity(input.snapshot, config) : undefined;
-  const intent = await llm.propose({ snapshot: input.snapshot, opportunity, marketAction: action });
+  const action = marketAction(snapshot, undefined, config);
+  const opportunity = action === "rotate" ? findRotationOpportunity(snapshot, config) : undefined;
+  const intent = assertIntent(await llm.propose({ snapshot, opportunity, marketAction: action }));
   const violations = validateIntent(intent, {
-    snapshot: input.snapshot,
+    snapshot,
     opportunity,
     spentTodayUsd: input.spentTodayUsd,
     openExposureUsd: input.openExposureUsd,
@@ -62,4 +66,3 @@ export async function runAgentCycle(input: {
   }
   return appendDecision(decision);
 }
-
