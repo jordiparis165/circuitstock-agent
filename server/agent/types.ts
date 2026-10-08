@@ -65,7 +65,7 @@ export type AgentDecision = {
   at: string;
   mode: AgentMode;
   action: AgentAction;
-  outcome: "paper-filled" | "rejected" | "held" | "blocked-live";
+  outcome: "paper-filled" | "simulation-mismatch" | "rejected" | "held" | "blocked-live";
   intent: AgentIntent;
   opportunity?: AgentOpportunity;
   violations: string[];
@@ -81,3 +81,15 @@ export type LlmClient = {
   propose(input: { snapshot: AgentSnapshot; opportunity?: AgentOpportunity; marketAction: AgentAction }): Promise<AgentIntent>;
 };
 
+export type AgentExecutionPreview = {
+  quoteId: string;
+  quoteExpiresInSec: number;
+  route: string;
+  priceImpactPct: string;
+  gasUsd: string;
+  balanceChanges: Array<{ token: string; direction: "in" | "out"; amountUsd: string }>;
+};
+
+export type AgentExecutor = {
+  quoteAndSimulate(input: { intent: AgentIntent; opportunity: AgentOpportunity; requestId: string }): Promise<AgentExecutionPreview>;
+};

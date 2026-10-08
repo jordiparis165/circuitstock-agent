@@ -1,16 +1,18 @@
 import crypto from "node:crypto";
 import { loadAgentConfig } from "./config";
+import { compareSimulationToIntent, PaperExecutor } from "./execution";
 import { validateIntent } from "./guardrails";
 import { appendDecision, findDecisionByRequestId } from "./ledger";
 import { MockLlmClient } from "./llmClient";
 import { marketAction } from "./marketState";
 import { assertIntent, assertSnapshot } from "./schema";
 import { findRotationOpportunity } from "./strategy";
-import type { AgentDecision, AgentSnapshot, LlmClient } from "./types";
+import type { AgentDecision, AgentExecutor, AgentSnapshot, LlmClient } from "./types";
 
 export async function runAgentCycle(input: {
   snapshot: AgentSnapshot;
   llm?: LlmClient;
+  executor?: AgentExecutor;
   requestId?: string;
   spentTodayUsd?: string;
   openExposureUsd?: string;
@@ -22,6 +24,7 @@ export async function runAgentCycle(input: {
   const snapshot = assertSnapshot(input.snapshot);
   const config = loadAgentConfig();
   const llm = input.llm ?? new MockLlmClient();
+  const executor = input.executor ?? new PaperExecutor();
   const action = marketAction(snapshot, undefined, config);
   const opportunity = action === "rotate" ? findRotationOpportunity(snapshot, config) : undefined;
   const intent = assertIntent(await llm.propose({ snapshot, opportunity, marketAction: action }));
@@ -54,15 +57,16 @@ export async function runAgentCycle(input: {
     decision.outcome = "blocked-live";
     decision.violations = [...decision.violations, "live execution is intentionally disabled in this branch"];
   } else {
-    decision.outcome = "paper-filled";
-    decision.paperSimulation = {
-      status: "SUCCESS",
-      quoteExpiresInSec: 30,
-      balanceChanges: [
-        { token: intent.from_token?.address ?? "unknown", direction: "out", amountUsd: intent.size_usd },
-        { token: intent.to_token?.address ?? "unknown", direction: "in", amountUsd: intent.size_usd }
-      ]
-    };
+    const preview = await executor.quoteAndSimulate({ intent, opportunity: opportunity!, requestId: decision.requestId });
+    const simulationMismatches = compareSimulationToIntent(intent, preview);
+    if (simulationMismatches.length) {
+      decision.outcome = "simulation-mismatch";
+      decision.violations = simulationMismatches;
+      decision.paperSimulation = { status: "SKIPPED", quoteExpiresInSec: preview.quoteExpiresInSec, balanceChanges: preview.balanceChanges };
+    } else {
+      decision.outcome = "paper-filled";
+      decision.paperSimulation = { status: "SUCCESS", quoteExpiresInSec: preview.quoteExpiresInSec, balanceChanges: preview.balanceChanges };
+    }
   }
   return appendDecision(decision);
 }

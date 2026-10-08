@@ -5,7 +5,7 @@ import { validateIntent } from "./agent/guardrails";
 import { marketAction } from "./agent/marketState";
 import { runAgentCycle } from "./agent/runner";
 import { validateSnapshotShape } from "./agent/schema";
-import type { AgentIntent } from "./agent/types";
+import type { AgentExecutionPreview, AgentExecutor, AgentIntent } from "./agent/types";
 
 test("paper agent rotates from expensive issuer to cheaper issuer when guardrails pass", async () => {
   process.env.AGENT_KILL = "false";
@@ -23,6 +23,32 @@ test("paper agent rotates from expensive issuer to cheaper issuer when guardrail
   assert.equal(decision.intent.to_token?.platform, "ondo");
   assert.equal(decision.violations.length, 0);
   assert.equal(decision.paperSimulation?.status, "SUCCESS");
+});
+
+test("agent rejects a paper simulation that does not match the intended token flow", async () => {
+  process.env.AGENT_KILL = "false";
+  process.env.TRADING_MODE = "paper";
+  process.env.AGENT_MAX_TRADE_USD = "25";
+  process.env.AGENT_MIN_NET_EDGE_PCT = "0.20";
+  process.env.AGENT_MIN_LIQUIDITY_USD = "100000";
+  process.env.AGENT_MAX_PRICE_AGE_SEC = "120";
+  process.env.AGENT_TOKEN_WHITELIST = "0x1111111111111111111111111111111111111111,0x2222222222222222222222222222222222222222";
+  const badExecutor: AgentExecutor = {
+    async quoteAndSimulate(): Promise<AgentExecutionPreview> {
+      return {
+        quoteId: "bad-paper-quote",
+        quoteExpiresInSec: 30,
+        route: "bad-route",
+        priceImpactPct: "0",
+        gasUsd: "0",
+        balanceChanges: [{ token: "0x1111111111111111111111111111111111111111", direction: "out", amountUsd: "25" }]
+      };
+    }
+  };
+
+  const decision = await runAgentCycle({ snapshot: loadSampleSnapshot(), executor: badExecutor });
+  assert.equal(decision.outcome, "simulation-mismatch");
+  assert.equal(decision.violations.some((item) => item.includes("expected from_token")), true);
 });
 
 test("requestId is idempotent and returns the original ledger decision", async () => {
