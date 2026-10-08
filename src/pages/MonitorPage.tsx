@@ -1,5 +1,16 @@
-import { ArrowDownRight, ArrowUpRight, BadgeDollarSign, CheckCircle2, FileSignature, SlidersHorizontal, TrendingUp } from "lucide-react";
-import { useEffect, useState } from "react";
+import {
+  ArrowDownRight,
+  ArrowUpRight,
+  BadgeDollarSign,
+  CheckCircle2,
+  ChevronDown,
+  ChevronUp,
+  ChevronsUpDown,
+  FileSignature,
+  SlidersHorizontal,
+  TrendingUp
+} from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
 import { NumberStepper } from "../components/NumberStepper";
 import {
   currency,
@@ -14,9 +25,9 @@ import {
 import { useShell } from "../lib/shell";
 
 export function MonitorPage() {
-  const { quotes, marketMode, walletAddress, risk, setRisk, platform, setPlatform, tab, setTab, maxTradeUsd, setMaxTradeUsd, health } = useShell();
-  const xstockEnabled = health?.supportedPlatforms.includes("xstock") ?? false;
+  const { quotes, marketMode, walletAddress, risk, setRisk, platform, setPlatform, tab, setTab, maxTradeUsd, setMaxTradeUsd } = useShell();
 
+  const [spreadSort, setSpreadSort] = useState<"best" | "worst" | null>(null);
   const [strategy, setStrategy] = useState<Strategy | null>(null);
   const [preview, setPreview] = useState<ExecutionPreview | null>(null);
   const [signatureResult, setSignatureResult] = useState<string | null>(null);
@@ -95,6 +106,18 @@ export function MonitorPage() {
 
   const statusText = preview?.humanStatus ?? preview?.simulationSummary?.humanStatus ?? preview?.error ?? "Prepare an action to inspect execution.";
 
+  // "Best" = most negative spreadBps (on-chain cheaper than reference = buy opportunity), matching
+  // the same green/red opportunity semantics used for the spread color in the table.
+  const sortedQuotes = useMemo(() => {
+    if (!spreadSort) return quotes;
+    const ascending = [...quotes].sort((a, b) => a.spreadBps - b.spreadBps);
+    return spreadSort === "worst" ? ascending.reverse() : ascending;
+  }, [quotes, spreadSort]);
+
+  function toggleSpreadSort() {
+    setSpreadSort((current) => (current === "best" ? "worst" : current === "worst" ? null : "best"));
+  }
+
   return (
     <>
       <div className="pageHead">
@@ -144,13 +167,10 @@ export function MonitorPage() {
         <SlidersHorizontal size={16} />
         <label>
           Platform
-          <select value={platform} onChange={(event) => setPlatform(event.target.value as "bstock" | "ondo" | "xstock" | "all")}>
+          <select value={platform} onChange={(event) => setPlatform(event.target.value as "bstock" | "ondo" | "all")}>
             <option value="all">All</option>
             <option value="bstock">bStocks</option>
             <option value="ondo">Ondo</option>
-            <option value="xstock" disabled={!xstockEnabled}>
-              xStocks{xstockEnabled ? "" : " (coming soon)"}
-            </option>
           </select>
         </label>
         {platform === "bstock" && (
@@ -181,19 +201,41 @@ export function MonitorPage() {
               <span>Source</span>
               <span>On-chain</span>
               <span>Reference</span>
-              <span>Spread</span>
+              <button
+                type="button"
+                className="sortableHead"
+                onClick={toggleSpreadSort}
+                title={
+                  spreadSort === "best"
+                    ? "Sorted best to worst opportunity - click to reverse"
+                    : spreadSort === "worst"
+                      ? "Sorted worst to best opportunity - click to reset"
+                      : "Click to sort by spread, best opportunity first"
+                }
+              >
+                Spread
+                {spreadSort === "best" && <ChevronDown size={13} />}
+                {spreadSort === "worst" && <ChevronUp size={13} />}
+                {!spreadSort && <ChevronsUpDown size={13} />}
+              </button>
             </div>
-            {quotes.map((quote) => {
+            {sortedQuotes.map((quote) => {
               const spreadClass = quote.spreadBps < 0 ? "positive" : quote.spreadBps > 0 ? "negative" : "";
               const spreadPct = Math.abs(quote.spreadBps) / 100;
               return (
                 <div className="row" key={quote.symbol}>
                   <span>
                     <strong>{quote.symbol}</strong>
-                    <small>{quote.name}</small>
+                    <small>
+                      {quote.name}
+                      {quote.shareRatio !== 1 ? ` · 1 token = ${quote.shareRatio} shares` : ""}
+                    </small>
                   </span>
                   <span>{quote.tokenSource}</span>
-                  <span>{currency.format(quote.onchainPrice)}</span>
+                  <span>
+                    {currency.format(quote.onchainPrice)}
+                    {quote.shareRatio !== 1 && <small className="perShareNote">per share</small>}
+                  </span>
                   <span>{currency.format(quote.referencePrice)}</span>
                   <span className={`spread ${spreadClass}`}>
                     <strong>{Math.abs(quote.spreadBps)} bps</strong>

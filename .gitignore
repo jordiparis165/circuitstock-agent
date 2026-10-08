@@ -8,3 +8,9 @@ dist
 .env*
 
 data
+
+CLAUDE.md
+
+scripts/
+docs/
+

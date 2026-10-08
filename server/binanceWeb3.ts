@@ -66,6 +66,28 @@ function signPayload(payload: string): string {
   return crypto.createHmac("sha256", config.apiSecret).update(payload, "utf8").digest("base64");
 }
 
+/**
+ * Binance Wallet/Transaction APIs return HTTP 200 even on a business error - only `body.code`
+ * tells you (documented, and confirmed: nothing in this client checked it before this fix).
+ * Parses the body and throws (with `.status`/`.body` attached, same shape as the HTTP-error path)
+ * whenever `code` is present and non-zero.
+ */
+function parseEnvelope<T>(text: string, httpStatus: number): T {
+  let parsed: unknown;
+  try {
+    parsed = text ? JSON.parse(text) : null;
+  } catch {
+    return text as T;
+  }
+  const envelope = parsed as { code?: number; msg?: string; success?: boolean } | null;
+  if (envelope && typeof envelope === "object" && "code" in envelope && envelope.code !== 0) {
+    const error = new Error(envelope.msg || `Binance Web3 business error (code ${envelope.code})`);
+    Object.assign(error, { status: httpStatus, body: text });
+    throw error;
+  }
+  return parsed as T;
+}
+
 function buildUrl(path: string, params: Record<string, string | number | undefined>): URL {
   const base = config.baseUrl.replace(/\/$/, "");
   const url = new URL(path.startsWith("/") ? `${base}${path}` : `${base}/${path}`);
@@ -102,11 +124,7 @@ export async function callBinanceGet<T>(path: string, params: Record<string, str
     throw error;
   }
 
-  try {
-    return JSON.parse(text) as T;
-  } catch {
-    return text as T;
-  }
+  return parseEnvelope<T>(text, response.status);
 }
 
 export async function callBinancePost<T>(path: string, body: unknown): Promise<T> {
@@ -138,11 +156,7 @@ export async function callBinancePost<T>(path: string, body: unknown): Promise<T
     throw error;
   }
 
-  try {
-    return JSON.parse(text) as T;
-  } catch {
-    return text as T;
-  }
+  return parseEnvelope<T>(text, response.status);
 }
 
 function toResult(endpoint: string, fn: () => Promise<unknown>): Promise<BinanceCallResult> {

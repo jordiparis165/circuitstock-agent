@@ -11,13 +11,14 @@ export type Health = {
 export type Quote = {
   symbol: string;
   name: string;
-  tokenSource: "bStocks" | "xStocks" | "Ondo";
+  tokenSource: "bStocks" | "Ondo";
   onchainPrice: number;
   referencePrice: number;
   spreadBps: number;
   liquidityUsd: number;
   marketWindow: "open" | "closed" | "pre-market" | "after-hours";
   contractReady: boolean;
+  shareRatio: number;
 };
 
 export type StrategyAction = {
@@ -134,6 +135,17 @@ export type AgentInterpretation = {
     researchOnly: boolean;
   };
   execution?: ExecutionPreview | null;
+};
+
+export type WatcherPolicy = {
+  minSpreadBps: number;
+  minScore: number;
+  minLiquidityUsd: number;
+  maxTradeUsd: number;
+  maxDailyUsd: number;
+  maxSlippageBps: number;
+  cooldownSec: number;
+  allowedSymbols: string[];
 };
 
 export type WatcherStatus = {

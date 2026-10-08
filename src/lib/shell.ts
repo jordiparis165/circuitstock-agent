@@ -15,8 +15,8 @@ export type ShellContext = {
   refreshWalletReadiness: () => Promise<void>;
   risk: "balanced" | "aggressive";
   setRisk: (risk: "balanced" | "aggressive") => void;
-  platform: "bstock" | "ondo" | "xstock" | "all";
-  setPlatform: (platform: "bstock" | "ondo" | "xstock" | "all") => void;
+  platform: "bstock" | "ondo" | "all";
+  setPlatform: (platform: "bstock" | "ondo" | "all") => void;
   tab: number;
   setTab: (tab: number) => void;
   maxTradeUsd: number;

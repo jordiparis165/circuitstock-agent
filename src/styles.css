@@ -573,6 +573,8 @@ button.ghost:hover:not(:disabled) {
 .table {
   display: grid;
   gap: 2px;
+  max-height: 560px;
+  overflow-y: auto;
 }
 
 .row {
@@ -586,13 +588,36 @@ button.ghost:hover:not(:disabled) {
 }
 
 .row.head {
+  position: sticky;
+  top: 0;
   min-height: 32px;
   color: #5b6570;
+  background: #12151a;
   border-bottom: 1px solid #1d2126;
   font-size: 0.72rem;
   font-weight: 700;
   letter-spacing: 0.02em;
   text-transform: uppercase;
+}
+
+.sortableHead {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  height: auto;
+  padding: 0;
+  color: inherit;
+  background: transparent;
+  font: inherit;
+  font-weight: inherit;
+  letter-spacing: inherit;
+  text-transform: inherit;
+  cursor: pointer;
+}
+
+.sortableHead:hover:not(:disabled) {
+  color: #f0b90b;
+  background: transparent;
 }
 
 .row strong {
@@ -602,6 +627,13 @@ button.ghost:hover:not(:disabled) {
 .row small {
   display: block;
   color: #5b6570;
+}
+
+.perShareNote {
+  margin-top: 1px;
+  font-size: 0.68rem;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
 }
 
 .positive {
@@ -864,6 +896,40 @@ button.ghost:hover:not(:disabled) {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 10px;
+}
+
+.settingsGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+  gap: 14px;
+  margin-bottom: 14px;
+}
+
+.settingsGrid label,
+.symbolsField {
+  display: grid;
+  gap: 6px;
+  color: #5b6570;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+}
+
+.settingsGrid small,
+.symbolsField small {
+  color: #5b6570;
+  font-size: 0.72rem;
+  font-weight: 500;
+  text-transform: none;
+}
+
+.symbolsField {
+  margin-bottom: 14px;
+}
+
+.symbolsField input {
+  width: 100%;
 }
 
 .basketRows article {

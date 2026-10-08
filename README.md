@@ -13,7 +13,7 @@ Live API: https://circuitstock-agent-api.onrender.com
 
 ## Why this angle
 
-- Fits tokenized-stock primitives: bStocks, xStocks, and Ondo-style tokenized exposure.
+- Fits tokenized-stock primitives: bStocks and Ondo-style tokenized exposure.
 - Targets special prizes through Agentic Wallet / Wallet Skills and BNB Agent Studio positioning.
 - Keeps execution cautious: scan, quote, official approval payload, swap calldata, gas checks, wallet checks, simulate, then require wallet signature.
 - Never broadcasts transactions automatically.
@@ -22,7 +22,7 @@ Live API: https://circuitstock-agent-api.onrender.com
 
 - Page-per-page Vite/React dashboard (Monitor, Wallet Skills, Agent Studio, Baskets, Risk Rules, Judge Mode), each with its own URL via `react-router-dom`.
 - Express API server with signed Binance Web3 requests.
-- Live RWA spread scanner with a Platform filter: bStocks, Ondo, All (merges every enabled platform), and xStocks (disabled in the UI until `BINANCE_WEB3_RWA_XSTOCK_PLATFORM_ID` is confirmed and set - see Environment below). Sector/tab filtering only applies within bStocks' own catalog tabs.
+- Live RWA spread scanner with a Platform filter: bStocks, Ondo, and All (merges both). xStocks was dropped - Binance's RWA Data API only lists `bstock`/`ondo` as platforms today. Sector/tab filtering only applies within bStocks' own catalog tabs.
 - Wallet connect state stays in sync automatically: it picks up an already-authorized wallet on load and reacts live to account switches or disconnects made from the wallet extension itself.
 - Agent recommendation engine with risk and max trade controls.
 - End-to-end prepare flow:
@@ -91,12 +91,8 @@ BINANCE_WEB3_MARKET_CANDLES_PATH=/api/v1/dex/market/candles
 BINANCE_WEB3_WALLET_ALL_BALANCES_PATH=/api/v1/dex/balance/all-token-balances-by-address
 BINANCE_WEB3_WALLET_PORTFOLIO_OVERVIEW_PATH=/api/v1/dex/market/portfolio/overview
 BSC_RPC_URL=https://bsc-dataseed.binance.org
-# The RWA Data API's platformId for xStocks isn't confirmed yet. Set it once verified via
-# GET /api/rwa/platforms; until then the xStocks filter stays disabled in the UI.
-BINANCE_WEB3_RWA_XSTOCK_PLATFORM_ID=
 VITE_API_BASE_URL=
 BSC_USDC_ADDRESS=
-AAPLX_ADDRESS=
 TSLAB_ADDRESS=
 SPYON_ADDRESS=
 NVDAB_ADDRESS=
@@ -188,7 +184,7 @@ Invoke-RestMethod -Uri http://localhost:8787/api/agent/interpret -Method Post -C
 
 ## Local API
 
-- `GET /api/market?platform=bstock|ondo|xstock|all&tab=<id>` - live opportunity scanner with RWA prices and spreads. `platform=all` merges every enabled platform; `tab` only applies to the bStocks slice.
+- `GET /api/market?platform=bstock|ondo|all&tab=<id>` - live opportunity scanner with RWA prices and spreads. `platform=all` merges bStocks and Ondo; `tab` only applies to the bStocks slice.
 - `POST /api/strategy` - ranked live actions for the UI.
 - `POST /api/agent/recommend` - agent-friendly recommendation payload for Wallet Skills / BNB Agent Studio.
 - `POST /api/agent/recommend/compact` - compact agent payload for skills and agent runtimes.

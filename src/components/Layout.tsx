@@ -30,7 +30,7 @@ export function Layout() {
   const [walletAddress, setWalletAddress] = useState<string | null>(null);
   const [walletReadiness, setWalletReadiness] = useState<WalletReadiness | null>(null);
   const [risk, setRisk] = useState<"balanced" | "aggressive">("balanced");
-  const [platform, setPlatform] = useState<"bstock" | "ondo" | "xstock" | "all">("bstock");
+  const [platform, setPlatform] = useState<"bstock" | "ondo" | "all">("bstock");
   const [tab, setTab] = useState(9);
   const [maxTradeUsd, setMaxTradeUsd] = useState(10);
 

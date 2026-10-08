@@ -1,5 +1,6 @@
-import { useState } from "react";
-import { currency, getJson, type AgentInterpretation, type AiAgentResult, type WatcherStatus } from "../lib/api";
+import { useEffect, useState } from "react";
+import { NumberStepper } from "../components/NumberStepper";
+import { currency, getJson, type AgentInterpretation, type AiAgentResult, type WatcherPolicy, type WatcherStatus } from "../lib/api";
 import { useShell } from "../lib/shell";
 
 export function AgentStudioPage() {
@@ -12,6 +13,10 @@ export function AgentStudioPage() {
   const [watcher, setWatcher] = useState<WatcherStatus | null>(null);
   const [watcherMessage, setWatcherMessage] = useState<string | null>(null);
   const [watcherLoaded, setWatcherLoaded] = useState(false);
+  const [policy, setPolicy] = useState<WatcherPolicy | null>(null);
+  const [allowedSymbolsText, setAllowedSymbolsText] = useState("");
+  const [policyMessage, setPolicyMessage] = useState<string | null>(null);
+  const [savingPolicy, setSavingPolicy] = useState(false);
 
   async function runAiCopilot() {
     const data = await getJson<AiAgentResult>("/api/ai/agent", {
@@ -36,6 +41,46 @@ export function AgentStudioPage() {
     setWatcher(data);
     setWatcherLoaded(true);
   }
+
+  async function loadPolicy() {
+    const data = await getJson<{ policy: WatcherPolicy }>("/api/watcher/policy");
+    setPolicy(data.policy);
+    setAllowedSymbolsText(data.policy.allowedSymbols.join(", "));
+  }
+
+  function updatePolicyField<K extends keyof WatcherPolicy>(field: K, value: WatcherPolicy[K]) {
+    setPolicy((current) => (current ? { ...current, [field]: value } : current));
+  }
+
+  async function savePolicy() {
+    if (!policy) return;
+    setSavingPolicy(true);
+    setPolicyMessage(null);
+    try {
+      const data = await getJson<{ policy: WatcherPolicy }>("/api/watcher/policy", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          ...policy,
+          allowedSymbols: allowedSymbolsText
+            .split(",")
+            .map((symbol) => symbol.trim())
+            .filter(Boolean)
+        })
+      });
+      setPolicy(data.policy);
+      setAllowedSymbolsText(data.policy.allowedSymbols.join(", "));
+      setPolicyMessage("Settings saved - applied on the next watcher tick.");
+    } catch {
+      setPolicyMessage("Could not save settings, try again.");
+    } finally {
+      setSavingPolicy(false);
+    }
+  }
+
+  useEffect(() => {
+    loadPolicy();
+  }, []);
 
   async function watcherAction(action: "tick" | "kill" | "resume") {
     const data = await getJson<{ decision?: WatcherStatus["decisions"][number]; status?: WatcherStatus } | WatcherStatus>(
@@ -108,6 +153,72 @@ export function AgentStudioPage() {
               Intent: {agentReply.intent?.side} {agentReply.intent?.symbol} &middot; ${agentReply.intent?.amountUsd} &middot; no broadcast
             </span>
           </p>
+        )}
+      </section>
+
+      <section className="panel">
+        <div className="panelHead">
+          <div>
+            <h2>Trading/arbitrage settings</h2>
+            <p className="hint">Tune the watcher to your own risk appetite and budget. Changes apply on the next tick, no restart needed.</p>
+          </div>
+        </div>
+        {!policy ? (
+          <p className="hint">Loading current settings...</p>
+        ) : (
+          <>
+            <div className="settingsGrid">
+              <label>
+                Min spread
+                <NumberStepper value={policy.minSpreadBps} onChange={(value) => updatePolicyField("minSpreadBps", value)} min={0} step={5} />
+                <small>basis points (100 bps = 1%)</small>
+              </label>
+              <label>
+                Min score
+                <NumberStepper value={policy.minScore} onChange={(value) => updatePolicyField("minScore", value)} min={0} step={5} />
+              </label>
+              <label>
+                Min liquidity
+                <NumberStepper
+                  value={policy.minLiquidityUsd}
+                  onChange={(value) => updatePolicyField("minLiquidityUsd", value)}
+                  min={0}
+                  step={10000}
+                />
+                <small>USD 24h volume</small>
+              </label>
+              <label>
+                Max per trade
+                <NumberStepper value={policy.maxTradeUsd} onChange={(value) => updatePolicyField("maxTradeUsd", value)} min={1} />
+                <small>USD</small>
+              </label>
+              <label>
+                Max per day
+                <NumberStepper value={policy.maxDailyUsd} onChange={(value) => updatePolicyField("maxDailyUsd", value)} min={1} />
+                <small>USD, resets daily</small>
+              </label>
+              <label>
+                Max slippage
+                <NumberStepper value={policy.maxSlippageBps} onChange={(value) => updatePolicyField("maxSlippageBps", value)} min={1} step={5} />
+                <small>basis points</small>
+              </label>
+              <label>
+                Cooldown
+                <NumberStepper value={policy.cooldownSec} onChange={(value) => updatePolicyField("cooldownSec", value)} min={0} step={300} />
+                <small>seconds between trades on the same token</small>
+              </label>
+            </div>
+            <label className="symbolsField">
+              Allowed symbols (comma-separated, empty = nothing is allowed)
+              <input value={allowedSymbolsText} onChange={(event) => setAllowedSymbolsText(event.target.value)} placeholder="TSLAB, NVDAB, SPYON" />
+            </label>
+            <div className="inlineActions">
+              <button onClick={savePolicy} disabled={savingPolicy}>
+                {savingPolicy ? "Saving..." : "Save settings"}
+              </button>
+            </div>
+            {policyMessage && <p className="hint">{policyMessage}</p>}
+          </>
         )}
       </section>
 

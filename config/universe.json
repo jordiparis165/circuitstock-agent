@@ -1,0 +1,5 @@
+{
+  "generatedAt": null,
+  "note": "Placeholder - run `npx tsx scripts/build-universe.ts` once ALPACA_KEY/ALPACA_SECRET are set to populate this from the real Binance x Alpaca intersection.",
+  "tokens": []
+}

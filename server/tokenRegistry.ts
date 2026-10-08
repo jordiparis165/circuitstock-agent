@@ -1,4 +1,4 @@
-export type TokenSource = "bStocks" | "xStocks" | "Ondo";
+export type TokenSource = "bStocks" | "Ondo";
 
 export type TokenRegistryItem = {
   symbol: string;
@@ -19,15 +19,6 @@ export const quoteTokens = {
 };
 
 export const tokenRegistry: TokenRegistryItem[] = [
-  {
-    symbol: "AAPLx",
-    ticker: "AAPL",
-    name: "Apple tokenized stock",
-    source: "xStocks",
-    decimals: 18,
-    address: process.env.AAPLX_ADDRESS,
-    referenceSymbol: "AAPL"
-  },
   {
     symbol: "TSLAb",
     ticker: "TSLA",

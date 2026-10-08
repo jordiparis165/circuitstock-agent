@@ -66,9 +66,22 @@ export const config = {
     pickEnv(["BINANCE_WEB3_WALLET_PORTFOLIO_OVERVIEW_PATH"]) ?? "/api/v1/dex/market/portfolio/overview",
   slippageBps: Number(pickEnv(["SLIPPAGE_BPS"])) || undefined,
   bscRpcUrl: pickEnv(["BSC_RPC_URL"]) ?? "https://bsc-dataseed.binance.org",
-  // The RWA Data API's platformId for xStocks isn't confirmed yet. Set BINANCE_WEB3_RWA_XSTOCK_PLATFORM_ID
-  // once verified via GET /api/rwa/platforms; until then xStocks stays unavailable as a live filter.
-  rwaXstockPlatformId: pickEnv(["BINANCE_WEB3_RWA_XSTOCK_PLATFORM_ID"])
+
+  // Independent reference price layer (Alpaca primary, Finnhub fallback) - see server/referencePrice.ts.
+  // referencePrice from Binance's /rwa/* endpoints is derived from the on-chain price itself (confirmed
+  // empirically via scripts/probe_reference_price.py), so it cannot be used as the arbitrage signal.
+  alpacaKeyId: pickEnv(["ALPACA_KEY", "ALPACA_KEY_ID"]),
+  alpacaSecretKey: pickEnv(["ALPACA_SECRET", "ALPACA_SECRET_KEY"]),
+  // Market Data API base (snapshots, clock) is data.alpaca.markets regardless of paper/live trading.
+  alpacaDataBaseUrl: pickEnv(["ALPACA_DATA_BASE_URL"]) ?? "https://data.alpaca.markets",
+  // Trading API base only used for /v2/assets (universe building) and /v2/clock; paper is fine for both.
+  alpacaTradingBaseUrl: pickEnv(["ALPACA_TRADING_BASE_URL"]) ?? "https://paper-api.alpaca.markets",
+  alpacaFeed: pickEnv(["ALPACA_FEED"]) ?? "iex",
+  finnhubApiKey: pickEnv(["FINNHUB_KEY", "FINNHUB_API_KEY"]),
+  finnhubBaseUrl: pickEnv(["FINNHUB_BASE_URL"]) ?? "https://finnhub.io/api/v1",
+  referencePriceCacheMs: Number(pickEnv(["REFERENCE_PRICE_CACHE_MS"])) || 1500,
+  referenceStaleMs: Number(pickEnv(["REFERENCE_STALE_MS"])) || 15000,
+  universePath: pickEnv(["UNIVERSE_PATH"]) ?? "config/universe.json"
 };
 
 export function maskSecret(value?: string): string | null {

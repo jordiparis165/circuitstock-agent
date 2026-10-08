@@ -23,7 +23,11 @@ import { runAiAgent } from "./aiAgent";
 import { walletReadiness } from "./bscRpc";
 import { config } from "./env";
 import { setKilled, startWatcher, tick, watcherStatus, type WatcherDeps } from "./watcher";
+import { getPolicy, updatePolicy } from "./policy";
+import { getReferencePrices, referencePriceProvidersConfigured, startAlpacaStream, type ReferencePrice } from "./referencePrice";
+import { computeSpread, isOutlier, isTradeable, normalizePerSharePrice, parseCandleCloses } from "./spread";
 import { getToken, quoteTokens, tokenRegistry } from "./tokenRegistry";
+import universeData from "../config/universe.json" with { type: "json" };
 
 const app = express();
 
@@ -65,13 +69,26 @@ app.get("/", (_req, res) => {
 type MarketQuote = {
   symbol: string;
   name: string;
-  tokenSource: "bStocks" | "xStocks" | "Ondo";
+  tokenSource: "bStocks" | "Ondo";
   onchainPrice: number;
   referencePrice: number;
   spreadBps: number;
   liquidityUsd: number;
   marketWindow: "open" | "closed" | "pre-market" | "after-hours";
   contractReady: boolean;
+  // 1 unless the token bundles several underlying shares (see RwaToken.tokenToShareRatio).
+  // onchainPrice is already normalized per-share; this is only surfaced so the UI can explain why.
+  shareRatio: number;
+  // Binance's own /rwa/tokens referencePrice, kept only as a secondary display value - it is
+  // DERIVED from tokenPrice (confirmed empirically), not an independent arbitrage signal.
+  binanceReferencePrice?: number;
+  // Set once an independent reference (Alpaca/Finnhub) has been applied; absent = this quote still
+  // only has Binance's derived reference and should not be treated as a real spread signal.
+  referenceSource?: "alpaca" | "finnhub";
+  referenceStale?: boolean;
+  // Independent market-open signal (from the reference feed's own clock), distinct from Binance's
+  // own marketWindow. Unknown is treated as closed (fail safe) - see spread.ts isTradeable().
+  independentMarketOpen?: boolean;
 };
 
 type RwaToken = {
@@ -84,6 +101,11 @@ type RwaToken = {
   underlyingName: string;
   tokenPrice: string;
   referencePrice: string;
+  // How many underlying shares one token represents (e.g. "10" means 1 token = 10 shares). Almost
+  // always ~1, but a handful of Ondo tokens bundle multiple shares per token - tokenPrice must be
+  // divided by this before comparing against referencePrice (which is always per-share), or the
+  // computed spread is bogus (e.g. NFLXon: tokenPrice $6757 / ratio 10 = $675.7, matching referencePrice).
+  tokenToShareRatio?: string;
   volume24H: string | null;
   statusInfo?: {
     openState?: boolean;
@@ -149,16 +171,7 @@ const basketThemes: Record<BasketTheme, { label: string; tab: number; thesis: st
   }
 };
 
-const seedQuotes: Omit<MarketQuote, "spreadBps" | "contractReady">[] = [
-  {
-    symbol: "AAPLx",
-    name: "Apple tokenized stock",
-    tokenSource: "xStocks",
-    onchainPrice: 239.42,
-    referencePrice: 238.88,
-    liquidityUsd: 812000,
-    marketWindow: "after-hours"
-  },
+const seedQuotes: Omit<MarketQuote, "spreadBps" | "contractReady" | "shareRatio">[] = [
   {
     symbol: "TSLAb",
     name: "Tesla bStock",
@@ -228,7 +241,7 @@ function getQuotes(): MarketQuote[] {
     const onchainPrice = jitter(quote.onchainPrice, quote.symbol);
     const spreadBps = Math.round(((onchainPrice - quote.referencePrice) / quote.referencePrice) * 10000);
     const token = getToken(quote.symbol);
-    return { ...quote, onchainPrice, spreadBps, contractReady: Boolean(token?.address && quoteTokens.usdc.address) };
+    return { ...quote, onchainPrice, spreadBps, shareRatio: 1, contractReady: Boolean(token?.address && quoteTokens.usdc.address) };
   });
 }
 
@@ -241,13 +254,22 @@ function toMarketWindow(token: RwaToken): MarketQuote["marketWindow"] {
 
 async function getLiveMarket(platforms: string[], tabs: number[]): Promise<{ cacheStatus: CacheStatus; quotes: MarketQuote[] }> {
   const { cacheStatus, tokens } = await fetchMarketTokens(platforms, tabs);
+  const derived = tokensToOpportunities(tokens);
 
-  // Multi-platform ("All") previews get a few extra rows so each source has a fair shot at showing up.
-  return { cacheStatus, quotes: tokensToOpportunities(tokens).slice(0, platforms.length > 1 ? 12 : 8) };
+  // Prefer the independent-reference view once it's actually usable (ALPACA_KEY/FINNHUB_KEY set
+  // and config/universe.json populated via scripts/build-universe.ts). Until then, fall back to
+  // the Binance-derived heuristic rather than showing an empty table - its `reason` text already
+  // says plainly that it isn't an independent signal.
+  const providers = referencePriceProvidersConfigured();
+  if ((providers.alpaca || providers.finnhub) && universeBySymbol.size > 0) {
+    const repriced = await applyIndependentReference(derived);
+    if (repriced.length > 0) return { cacheStatus, quotes: repriced };
+  }
+  return { cacheStatus, quotes: derived };
 }
 
 // Sector/tab is a bStocks-only categorization; when other platforms are mixed in (e.g. the "All"
-// preview) it only gets applied to the bStocks slice so it doesn't wrongly filter Ondo/xStocks.
+// preview) it only gets applied to the bStocks slice so it doesn't wrongly filter Ondo.
 async function fetchMarketTokens(platforms: string[], tabs: number[]): Promise<RwaTokenResult> {
   const otherPlatforms = platforms.filter((platform) => platform !== "bstock");
   const [bstockResult, otherResult] = await Promise.all([
@@ -301,8 +323,7 @@ function fallbackRwaTokens(): RwaToken[] {
     const onchainPrice = jitter(quote.onchainPrice, quote.symbol);
     return {
       tokenContractAddress: token?.address ?? `0x${crypto.createHash("sha256").update(quote.symbol).digest("hex").slice(0, 40)}`,
-      platformId:
-        quote.tokenSource === "Ondo" ? "ondo" : quote.tokenSource === "xStocks" ? PLATFORM_API_IDS.xstock ?? "bstock" : "bstock",
+      platformId: quote.tokenSource === "Ondo" ? "ondo" : "bstock",
       tokenName: quote.name,
       tokenSymbol: quote.symbol,
       decimals: String(token?.decimals ?? 18),
@@ -316,27 +337,40 @@ function fallbackRwaTokens(): RwaToken[] {
   });
 }
 
+/**
+ * Builds the opportunity list from Binance's own derived referencePrice. This stays as a cheap
+ * secondary/display heuristic (used by baskets/strategy/compact-agent-recommend); the Monitor
+ * table and the autonomous watcher go through applyIndependentReference() instead, which is the
+ * one with a trustworthy spread signal - see docs/dx-report-notes.md for why.
+ */
 function tokensToOpportunities(tokens: RwaToken[]): Opportunity[] {
   return tokens
-    .filter((token) => Number(token.tokenPrice) > 0 && Number(token.referencePrice) > 0)
     .map((token) => {
-      const onchainPrice = Number(token.tokenPrice);
-      const referencePrice = Number(token.referencePrice);
-      const spreadBps = Math.round(((onchainPrice - referencePrice) / referencePrice) * 10000);
+      const onchainPrice = normalizePerSharePrice(token.tokenPrice, token.tokenToShareRatio);
+      if (onchainPrice === null) return null;
+      const spread = computeSpread(onchainPrice, token.referencePrice);
+      if (!spread || isOutlier(spread.spreadPct)) return null;
+
       const liquidityUsd = Number(token.volume24H ?? 0);
-      const absSpread = Math.abs(spreadBps);
+      const open = token.statusInfo?.openState === true;
       const liquidityScore = Math.min(40, Math.log10(Math.max(liquidityUsd, 1)) * 5);
-      const statusScore = token.statusInfo?.openState ? 10 : 20;
-      const score = Math.round(absSpread * 1.2 + liquidityScore + statusScore);
-      const direction = (absSpread < 5 ? "watch" : spreadBps < 0 ? "buy" : "trim") as Opportunity["direction"];
-      return {
+      // Closed market = penalized, not rewarded (used to be inverted: 20 for closed vs 10 for open).
+      const statusScore = open ? 20 : 5;
+      const score = Math.round(Math.abs(spread.spreadBps) * 1.2 + liquidityScore + statusScore);
+      // No independent reference on this path yet, so never claim a firm buy/trim - always "watch".
+      // This also means a closed market never gets mislabeled as a live opportunity.
+      const direction: Opportunity["direction"] = open ? spread.direction : "watch";
+
+      const opportunity: Opportunity = {
         symbol: token.tokenSymbol,
         name: token.underlyingName || token.tokenName,
         tokenSource: platformSourceLabel(token.platformId),
         onchainPrice,
-        referencePrice,
-        spreadBps,
+        referencePrice: Number(token.referencePrice),
+        binanceReferencePrice: Number(token.referencePrice),
+        spreadBps: spread.spreadBps,
         liquidityUsd,
+        shareRatio: Number(token.tokenToShareRatio),
         marketWindow: toMarketWindow(token),
         contractReady: Boolean(token.tokenContractAddress && quoteTokens.usdc.address),
         tokenAddress: token.tokenContractAddress,
@@ -344,14 +378,76 @@ function tokensToOpportunities(tokens: RwaToken[]): Opportunity[] {
         score,
         direction,
         reason:
-          direction === "buy"
-            ? "Token trades below reference price with sufficient 24h liquidity."
-            : direction === "trim"
-              ? "Token trades above reference price; trim or route into a cheaper exposure."
-              : "Spread is tight; keep monitoring until drift clears the threshold."
+          !open
+            ? "Underlying market is closed - watch only, not acted on."
+            : direction === "buy"
+              ? "Token trades below Binance's derived reference with sufficient 24h liquidity (not an independent signal)."
+              : direction === "trim"
+                ? "Token trades above Binance's derived reference; trim or route into a cheaper exposure (not an independent signal)."
+                : "Spread is tight; keep monitoring until drift clears the threshold."
       };
+      return opportunity;
     })
+    .filter((item): item is Opportunity => item !== null)
     .sort((a, b) => b.score - a.score);
+}
+
+type UniverseEntry = { symbol: string; underlyingTicker: string; platformId: string; tokenContractAddress: string; liquidityUsd: number };
+const universeBySymbol = new Map<string, UniverseEntry>(
+  ((universeData as { tokens: UniverseEntry[] }).tokens ?? []).map((entry) => [entry.symbol.toUpperCase(), entry])
+);
+
+/**
+ * Re-prices a list of opportunities against the independent reference feed (Alpaca/Finnhub),
+ * scoped to the curated universe (config/universe.json - the most liquid tokens that are also
+ * covered by a real equity data feed). Tokens outside the universe are dropped: without an
+ * independent reference there is no trustworthy spread to show or trade on.
+ */
+async function applyIndependentReference(opportunities: Opportunity[]): Promise<Opportunity[]> {
+  const inUniverse = opportunities.filter((item) => universeBySymbol.has(item.symbol.toUpperCase()));
+  if (inUniverse.length === 0) return [];
+
+  const tickers = inUniverse.map((item) => universeBySymbol.get(item.symbol.toUpperCase())!.underlyingTicker);
+  const references = await getReferencePrices(tickers);
+
+  const repriced: Opportunity[] = [];
+  for (const item of inUniverse) {
+    const entry = universeBySymbol.get(item.symbol.toUpperCase())!;
+    const reference = references.get(entry.underlyingTicker.toUpperCase());
+    if (!reference) continue; // no usable independent reading this cycle - skip rather than guess
+
+    const spread = computeSpread(item.onchainPrice, reference.price);
+    if (!spread || isOutlier(spread.spreadPct)) continue;
+
+    const tradeable = isTradeable(reference.marketOpen) && !reference.stale;
+    const liquidityScore = Math.min(40, Math.log10(Math.max(item.liquidityUsd, 1)) * 5);
+    const statusScore = tradeable ? 20 : 5; // closed/stale markets are penalized, not rewarded (was inverted before)
+    const score = Math.round(Math.abs(spread.spreadBps) * 1.2 + liquidityScore + statusScore);
+    const direction: Opportunity["direction"] = tradeable ? spread.direction : "watch";
+
+    repriced.push({
+      ...item,
+      binanceReferencePrice: item.referencePrice,
+      referencePrice: reference.price,
+      referenceSource: reference.source,
+      referenceStale: reference.stale,
+      independentMarketOpen: reference.marketOpen,
+      spreadBps: spread.spreadBps,
+      score,
+      direction,
+      reason: !tradeable
+        ? reference.stale
+          ? "Reference price is stale - not acting on it."
+          : "Underlying market is closed - not acting on it."
+        : direction === "buy"
+          ? "Token trades below an independent reference price with sufficient 24h liquidity."
+          : direction === "trim"
+            ? "Token trades above an independent reference price; trim or route into a cheaper exposure."
+            : "Spread is tight against the independent reference; keep monitoring."
+    });
+  }
+
+  return repriced.sort((a, b) => b.score - a.score);
 }
 
 async function getTokenBySymbol(
@@ -387,20 +483,17 @@ async function getTokenBySymbol(
 }
 
 // Internal platform keys used across the UI/API params, mapped to the platformId value the
-// Binance Web3 RWA Data API actually expects. bstock/ondo are 1:1; xstock is only enabled once
-// BINANCE_WEB3_RWA_XSTOCK_PLATFORM_ID is confirmed and set (see server/env.ts).
-const PLATFORM_API_IDS: Record<string, string | undefined> = {
+// Binance Web3 RWA Data API actually expects. Binance only exposes bstock/ondo today (confirmed
+// via GET /api/rwa/platforms) - xStocks isn't a real platform there yet, so it isn't offered here.
+const PLATFORM_API_IDS: Record<string, string> = {
   bstock: "bstock",
-  ondo: "ondo",
-  xstock: config.rwaXstockPlatformId
+  ondo: "ondo"
 };
 
-const SUPPORTED_PLATFORMS = Object.keys(PLATFORM_API_IDS).filter((key) => Boolean(PLATFORM_API_IDS[key]));
+const SUPPORTED_PLATFORMS = Object.keys(PLATFORM_API_IDS);
 
 function platformSourceLabel(platformId: string): MarketQuote["tokenSource"] {
-  if (platformId === PLATFORM_API_IDS.ondo) return "Ondo";
-  if (platformId === PLATFORM_API_IDS.xstock) return "xStocks";
-  return "bStocks";
+  return platformId === PLATFORM_API_IDS.ondo ? "Ondo" : "bStocks";
 }
 
 function toArray(input: unknown): unknown[] {
@@ -696,22 +789,16 @@ function compactError(result: unknown) {
   });
 }
 
-function findNumbersDeep(value: unknown, keys = ["close", "c", "price"]): number[] {
-  if (!value) return [];
-  if (Array.isArray(value)) return value.flatMap((item) => findNumbersDeep(item, keys));
-  if (typeof value === "object") {
-    const record = value as Record<string, unknown>;
-    const direct = keys
-      .map((key) => record[key])
-      .map((item) => Number(item))
-      .filter((item) => Number.isFinite(item) && item > 0);
-    return direct.length ? direct : Object.values(record).flatMap((item) => findNumbersDeep(item, keys));
-  }
-  return [];
-}
-
-function summarizeCandles(candles: unknown) {
-  const prices = findNumbersDeep(candles).slice(-24);
+/**
+ * `candles` here is the raw BinanceCallResult: `{ok, mode, endpoint, data: {code, msg, data: [...rows], ...} }`
+ * (Binance's own envelope, one level deeper than the outer wrapper) - the actual candle rows live
+ * at `.data.data`, not `.data`. Both call sites used to pass `.data` only, so parseCandleCloses
+ * always received the envelope object instead of the row array.
+ */
+function summarizeCandles(candlesResult: unknown) {
+  const envelope = (candlesResult as { data?: unknown } | null)?.data;
+  const rows = (envelope as { data?: unknown } | null)?.data ?? envelope;
+  const prices = parseCandleCloses(rows).slice(-24);
   if (prices.length < 2) {
     return { points: prices.length, volatilityBps: null, changeBps: null, signal: "insufficient_candles" };
   }
@@ -855,7 +942,7 @@ async function prepareExecution(
     },
     research: {
       candles,
-      candleSummary: candles && "data" in candles ? summarizeCandles((candles as { data?: unknown }).data) : null,
+      candleSummary: candles && "data" in candles ? summarizeCandles(candles) : null,
       underlyingProfile,
       underlyingMarket
     },
@@ -896,7 +983,7 @@ app.get("/api/health", (_req, res) => {
 app.get("/api/market", async (req, res) => {
   const platforms = normalizePlatforms(req.query.platform ?? req.query.platforms);
   // Sector/tab only means something within bStocks' own catalog tabs; fetchMarketTokens only
-  // applies it to the bStocks slice so Ondo/xStocks aren't filtered by a taxonomy that doesn't apply to them.
+  // applies it to the bStocks slice so Ondo isn't filtered by a taxonomy that doesn't apply to it.
   const tabs = normalizeTabs(req.query.tab ?? req.query.tabs);
   try {
     const liveMarket = await getLiveMarket(platforms, tabs);
@@ -913,7 +1000,7 @@ app.get("/api/market", async (req, res) => {
     res.json({
       mode: "fallback",
       cacheStatus: "fallback",
-      quotes: getQuotes().filter((quote) => platforms.includes(quote.tokenSource === "Ondo" ? "ondo" : quote.tokenSource === "xStocks" ? "xstock" : "bstock")),
+      quotes: getQuotes().filter((quote) => platforms.includes(quote.tokenSource === "Ondo" ? "ondo" : "bstock")),
       tokens: tokenRegistry,
       updatedAt: new Date().toISOString(),
       error: normalized
@@ -1003,7 +1090,7 @@ app.get("/api/research/:symbol", async (req, res) => {
     ok: true,
     token,
     candles: candleData,
-    candleSummary: candleData && "data" in candleData ? summarizeCandles((candleData as { data?: unknown }).data) : null,
+    candleSummary: candleData && "data" in candleData ? summarizeCandles(candleData) : null,
     underlyingProfile: profile.status === "fulfilled" ? profile.value : null,
     underlyingMarket: market.status === "fulfilled" ? market.value : null
   });
@@ -1121,6 +1208,18 @@ app.get("/api/judge/smoke", async (_req, res) => {
   }
   const watcher = watcherStatus();
   checks.push({ name: "watcher", ok: watcher.policy.mode === "dry-run", detail: { enabled: watcher.enabled, killed: watcher.killed } });
+  // TEMPORARY - surfaces the build/test lifetime budget cap for judges only; this check (and the
+  // field behind it) disappears once AUTO_TEST_LIFETIME_USD is unset/removed before delivery.
+  if (watcher.policy.testLifetimeCapUsd !== undefined) {
+    checks.push({
+      name: "test-budget-cap",
+      ok: true,
+      detail: {
+        capUsd: watcher.policy.testLifetimeCapUsd,
+        note: "Temporary cumulative cap for the build/test phase only - not a permanent product limit, removed before final delivery."
+      }
+    });
+  }
   try {
     const wallet = await walletReadiness("0x000000000000000000000000000000000000dEaD");
     checks.push({
@@ -1528,8 +1627,13 @@ app.post("/api/strategy", async (req, res) => {
 
 const watcherDeps: WatcherDeps = {
   fetchOpportunities: async () => {
+    // Fail closed: Binance's own referencePrice is derived from the on-chain price (confirmed
+    // empirically, see docs/dx-report-notes.md), so it is not a real signal - the watcher must
+    // never auto-trade off it. No independent reference configured/populated -> no candidates.
+    const providers = referencePriceProvidersConfigured();
+    if (!(providers.alpaca || providers.finnhub) || universeBySymbol.size === 0) return [];
     const { tokens } = await fetchRwaTokens(SUPPORTED_PLATFORMS, []);
-    return tokensToOpportunities(tokens);
+    return applyIndependentReference(tokensToOpportunities(tokens));
   },
   prepare: (symbol, side, amountUsd, walletAddress, slippageBps) =>
     prepareExecution(symbol, side, amountUsd, walletAddress, resolveSlippageBps(slippageBps))
@@ -1553,7 +1657,39 @@ app.post("/api/watcher/tick", async (_req, res) => {
   res.json({ decision: await tick(watcherDeps), status: watcherStatus() });
 });
 
+// User-editable trading/arbitrage settings (min spread, min score, min liquidity, max trade,
+// max daily budget, slippage, cooldown, whitelist). Everything else about the watcher
+// (enabled, mode, wallet, the temporary test budget cap) stays operator/env-only.
+app.get("/api/watcher/policy", (_req, res) => {
+  const { minSpreadBps, minScore, minLiquidityUsd, maxTradeUsd, maxDailyUsd, maxSlippageBps, cooldownSec, allowedSymbols } = getPolicy();
+  res.json({ ok: true, policy: { minSpreadBps, minScore, minLiquidityUsd, maxTradeUsd, maxDailyUsd, maxSlippageBps, cooldownSec, allowedSymbols } });
+});
+
+app.post("/api/watcher/policy", (req, res) => {
+  const body = req.body ?? {};
+  const allowedSymbols = Array.isArray(body.allowedSymbols)
+    ? body.allowedSymbols
+    : typeof body.allowedSymbols === "string"
+      ? body.allowedSymbols.split(",")
+      : undefined;
+  const updated = updatePolicy({
+    minSpreadBps: body.minSpreadBps,
+    minScore: body.minScore,
+    minLiquidityUsd: body.minLiquidityUsd,
+    maxTradeUsd: body.maxTradeUsd,
+    maxDailyUsd: body.maxDailyUsd,
+    maxSlippageBps: body.maxSlippageBps,
+    cooldownSec: body.cooldownSec,
+    allowedSymbols
+  });
+  const { minSpreadBps, minScore, minLiquidityUsd, maxTradeUsd, maxDailyUsd, maxSlippageBps, cooldownSec, allowedSymbols: symbols } = updated;
+  res.json({ ok: true, policy: { minSpreadBps, minScore, minLiquidityUsd, maxTradeUsd, maxDailyUsd, maxSlippageBps, cooldownSec, allowedSymbols: symbols } });
+});
+
 app.listen(port, () => {
   console.log(`CircuitStock API listening on http://localhost:${port}`);
   startWatcher(watcherDeps);
+  if (universeBySymbol.size > 0) {
+    startAlpacaStream([...universeBySymbol.values()].map((entry) => entry.underlyingTicker));
+  }
 });

@@ -45,7 +45,7 @@ export function RiskRulesPage() {
           </div>
           <div>
             <span>Platform</span>
-            <strong>{platform === "bstock" ? "bStocks" : platform === "ondo" ? "Ondo" : platform === "xstock" ? "xStocks" : "All"}</strong>
+            <strong>{platform === "bstock" ? "bStocks" : platform === "ondo" ? "Ondo" : "All"}</strong>
           </div>
           <div>
             <span>Sector</span>

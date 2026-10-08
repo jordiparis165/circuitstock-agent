@@ -1,15 +1,5 @@
 import { pickEnv } from "./env";
-import {
-  evaluate,
-  loadPolicy,
-  loadState,
-  saveState,
-  spentToday,
-  today,
-  type AutoPolicy,
-  type Decision,
-  type WatcherState
-} from "./policy";
+import { evaluate, getPolicy, loadState, saveState, spentToday, today, type Decision, type WatcherState } from "./policy";
 
 type WatchedOpportunity = {
   symbol: string;
@@ -30,7 +20,6 @@ export type WatcherDeps = {
   ) => Promise<{ ok?: boolean; simulationSummary?: { status?: string } | null; error?: string }>;
 };
 
-const policy: AutoPolicy = loadPolicy();
 const state: WatcherState = loadState();
 let timer: NodeJS.Timeout | null = null;
 let running = false;
@@ -47,6 +36,7 @@ export async function tick(deps: WatcherDeps): Promise<Decision> {
   if (running) return record({ symbol: null, side: null, amountUsd: 0, outcome: "skipped", reasons: ["previous tick still running"] });
   running = true;
   lastTickAt = new Date().toISOString();
+  const policy = getPolicy();
   try {
     const opportunities = await deps.fetchOpportunities();
     const top = opportunities.find((item) => item.direction !== "watch" && Math.abs(item.spreadBps) >= policy.minSpreadBps);
@@ -89,6 +79,7 @@ export async function tick(deps: WatcherDeps): Promise<Decision> {
 }
 
 export function startWatcher(deps: WatcherDeps): void {
+  const policy = getPolicy();
   if (!policy.enabled) {
     console.log("[watcher] disabled (set AUTO_ENABLED=true to start)");
     return;
@@ -105,11 +96,11 @@ export function setKilled(killed: boolean): void {
 
 export function watcherStatus() {
   return {
-    enabled: policy.enabled,
+    enabled: getPolicy().enabled,
     running: timer !== null,
     killed: state.killed || pickEnv(["AUTO_KILL"]) === "true",
     lastTickAt,
-    policy,
+    policy: getPolicy(),
     spentTodayUsd: spentToday(state),
     lastTradeAt: state.lastTradeAt,
     decisions: state.decisions.slice(-50).reverse()

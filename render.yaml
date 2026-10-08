@@ -3,6 +3,9 @@ services:
     name: circuitstock-agent-api
     env: node
     plan: free
+    # Binance Web3 blocks US/UK/NL/Iran/Cuba/NK/Crimea-Donetsk-Luhansk (and conditionally Japan) -
+    # declared explicitly rather than relying on Render's unset default (Oregon, US).
+    region: frankfurt
     buildCommand: npm install
     startCommand: npm start
     healthCheckPath: /api/health
@@ -62,17 +65,22 @@ services:
       - key: AUTO_MIN_LIQUIDITY_USD
         value: "100000"
       - key: AUTO_MAX_TRADE_USD
-        value: "25"
+        value: "4"
       - key: AUTO_MAX_DAILY_USD
-        value: "100"
+        value: "10"
       - key: AUTO_MAX_SLIPPAGE_BPS
         value: "50"
       - key: AUTO_COOLDOWN_SEC
-        value: "900"
+        value: "7200"
       - key: AUTO_ALLOWED_SYMBOLS
         value: ""
       - key: AUTO_KILL
         value: "false"
+      # TEMPORARY - one-time cumulative spend cap for the build/test phase only. Not a permanent
+      # product setting; remove this var (and its evaluate() check in server/policy.ts) before
+      # final delivery.
+      - key: AUTO_TEST_LIFETIME_USD
+        value: "40"
       - key: BINANCE_WEB3_API_KEY
         sync: false
       - key: BINANCE_WEB3_API_SECRET
@@ -80,4 +88,6 @@ services:
       - key: OPENAI_API_KEY
         sync: false
       - key: AUTO_WALLET_ADDRESS
+        sync: false
+      - key: AUTO_WALLET_PRIVATE_KEY
         sync: false
