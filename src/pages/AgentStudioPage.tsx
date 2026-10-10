@@ -1,6 +1,15 @@
 import { useEffect, useState } from "react";
 import { NumberStepper } from "../components/NumberStepper";
-import { currency, getJson, type AgentInterpretation, type AiAgentResult, type WatcherPolicy, type WatcherStatus } from "../lib/api";
+import {
+  currency,
+  getJson,
+  type AgentChatResponse,
+  type AgentInterpretation,
+  type AiAgentResult,
+  type PivotSettings,
+  type WatcherPolicy,
+  type WatcherStatus
+} from "../lib/api";
 import { useShell } from "../lib/shell";
 
 export function AgentStudioPage() {
@@ -17,6 +26,10 @@ export function AgentStudioPage() {
   const [allowedSymbolsText, setAllowedSymbolsText] = useState("");
   const [policyMessage, setPolicyMessage] = useState<string | null>(null);
   const [savingPolicy, setSavingPolicy] = useState(false);
+  const [chatMessage, setChatMessage] = useState("buy 50 USD of AAPL");
+  const [chatResponse, setChatResponse] = useState<AgentChatResponse | null>(null);
+  const [pivotSettings, setPivotSettings] = useState<PivotSettings | null>(null);
+  const [pivotMessage, setPivotMessage] = useState<string | null>(null);
 
   async function runAiCopilot() {
     const data = await getJson<AiAgentResult>("/api/ai/agent", {
@@ -36,6 +49,16 @@ export function AgentStudioPage() {
     setAgentReply(data);
   }
 
+  async function runPivotChat() {
+    const data = await getJson<AgentChatResponse>("/api/agent/chat", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ message: chatMessage })
+    });
+    setChatResponse(data);
+    loadPivotSettings();
+  }
+
   async function loadWatcher() {
     const data = await getJson<WatcherStatus>("/api/watcher/status");
     setWatcher(data);
@@ -46,6 +69,21 @@ export function AgentStudioPage() {
     const data = await getJson<{ policy: WatcherPolicy }>("/api/watcher/policy");
     setPolicy(data.policy);
     setAllowedSymbolsText(data.policy.allowedSymbols.join(", "));
+  }
+
+  async function loadPivotSettings() {
+    const data = await getJson<{ settings: PivotSettings }>("/api/settings");
+    setPivotSettings(data.settings);
+  }
+
+  async function setAgentEnabled(enabled: boolean) {
+    const data = await getJson<{ settings: PivotSettings }>("/api/settings/kill", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ enabled })
+    });
+    setPivotSettings(data.settings);
+    setPivotMessage(enabled ? "Agent enabled." : "Agent disabled. Suggestions, alerts and plans are blocked.");
   }
 
   function updatePolicyField<K extends keyof WatcherPolicy>(field: K, value: WatcherPolicy[K]) {
@@ -80,6 +118,7 @@ export function AgentStudioPage() {
 
   useEffect(() => {
     loadPolicy();
+    loadPivotSettings();
   }, []);
 
   async function watcherAction(action: "tick" | "kill" | "resume") {
@@ -116,6 +155,60 @@ export function AgentStudioPage() {
             Schedule <code>/api/agent/recommend</code> and escalate only when spread, liquidity and risk rules pass.
           </span>
         </div>
+      </section>
+
+      <section className="panel">
+        <div className="panelHead">
+          <div>
+            <h2>Conversational agent</h2>
+            <p className="hint">Simulated only. The agent explains, drafts alerts/plans and proposes actions, but never signs or broadcasts.</p>
+          </div>
+          <strong className={pivotSettings?.agent_enabled ? "agentState on" : "agentState off"}>
+            {pivotSettings?.agent_enabled ? "Agent on" : "Agent off"}
+          </strong>
+        </div>
+        <div className="inlineForm">
+          <input value={chatMessage} onChange={(event) => setChatMessage(event.target.value)} />
+          <button onClick={runPivotChat}>Ask agent</button>
+        </div>
+        <div className="inlineActions">
+          <button className="ghost" onClick={() => setAgentEnabled(false)}>
+            Disable agent
+          </button>
+          <button className="ghost" onClick={() => setAgentEnabled(true)}>
+            Enable agent
+          </button>
+        </div>
+        {pivotMessage && <p className="hint">{pivotMessage}</p>}
+        {chatResponse && (
+          <div className="agentCard">
+            <div>
+              <p className="eyebrow">{chatResponse.card.simulated ? "Simulated" : "Live"}</p>
+              <h3>{chatResponse.card.title}</h3>
+              <p>{chatResponse.reply}</p>
+              <small>{chatResponse.disclaimer}</small>
+            </div>
+            <div className="agentChecks">
+              {chatResponse.card.checks.map((check) => (
+                <span className={check.status} key={check.id}>
+                  <strong>{check.label}</strong>
+                  {check.value ?? "--"} {check.threshold ? ` / ${check.threshold}` : ""} · {check.source}
+                </span>
+              ))}
+            </div>
+            <details>
+              <summary>See detail</summary>
+              <p>{chatResponse.card.summary}</p>
+              <ul>
+                {chatResponse.card.would_change_if.map((item) => (
+                  <li key={item}>{item}</li>
+                ))}
+              </ul>
+              <pre>{JSON.stringify(chatResponse.card.details, null, 2)}</pre>
+            </details>
+            <p className="hint">Tools: {chatResponse.tools.join(", ")}</p>
+          </div>
+        )}
       </section>
 
       <section className="panel">

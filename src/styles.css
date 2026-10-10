@@ -743,6 +743,96 @@ button.ghost:hover:not(:disabled) {
   color: #848e9c;
 }
 
+.agentState {
+  display: inline-flex;
+  align-items: center;
+  min-height: 30px;
+  padding: 0 10px;
+  border-radius: 999px;
+  font-size: 0.78rem;
+}
+
+.agentState.on {
+  color: #0ecb81;
+  background: rgb(14 203 129 / 12%);
+}
+
+.agentState.off {
+  color: #f6465d;
+  background: rgb(246 70 93 / 12%);
+}
+
+.agentCard {
+  display: grid;
+  gap: 12px;
+  margin-top: 14px;
+  padding: 14px;
+  border: 1px solid #2b3139;
+  border-radius: 8px;
+  background: #0b0e11;
+}
+
+.agentCard h3,
+.agentCard p {
+  margin: 0;
+}
+
+.agentCard small,
+.agentCard li {
+  color: #848e9c;
+}
+
+.agentCard details {
+  border-top: 1px solid #2b3139;
+  padding-top: 10px;
+}
+
+.agentCard summary {
+  cursor: pointer;
+  color: #f0b90b;
+  font-weight: 800;
+}
+
+.agentCard pre {
+  max-height: 260px;
+  overflow: auto;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.agentChecks {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.agentChecks span {
+  display: grid;
+  gap: 3px;
+  padding: 10px;
+  border: 1px solid #2b3139;
+  border-radius: 8px;
+  color: #848e9c;
+  background: #181a20;
+  font-size: 0.82rem;
+}
+
+.agentChecks strong {
+  color: #eaecef;
+}
+
+.agentChecks span.pass {
+  border-color: rgb(14 203 129 / 35%);
+}
+
+.agentChecks span.fail {
+  border-color: rgb(246 70 93 / 35%);
+}
+
+.agentChecks span.na {
+  border-color: rgb(240 185 11 / 35%);
+}
+
 .statRow {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
@@ -1101,6 +1191,7 @@ button.ghost:hover:not(:disabled) {
   .signGrid,
   .txVerifierRow,
   .inlineForm,
+  .agentChecks,
   .statRow,
   .basketControls,
   .quickFlowControls {

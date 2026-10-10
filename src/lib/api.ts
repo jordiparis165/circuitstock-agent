@@ -148,6 +148,50 @@ export type WatcherPolicy = {
   allowedSymbols: string[];
 };
 
+export type PivotSettings = {
+  agent_enabled: boolean;
+  mode: "confirm" | "auto";
+  max_order_usd: number;
+  min_order_usd: number;
+  daily_cap_usd: number;
+  premium_noise_pct: number;
+  premium_warn_pct: number;
+  rotation_k: number;
+  rotation_min_gain_usd: number;
+  rotation_cooldown_h: number;
+  max_route_cost_pct: number;
+  allowed_issuers: Array<"ondo" | "bstock">;
+  preset: "prudent" | "balanced" | "dynamic";
+};
+
+export type AgentCheck = {
+  id: string;
+  label: string;
+  status: "pass" | "fail" | "na";
+  value?: string;
+  threshold?: string;
+  source: string;
+  age_s?: number;
+};
+
+export type AgentChatResponse = {
+  ok: boolean;
+  reply: string;
+  disclaimer: string;
+  tools: string[];
+  card: {
+    type: string;
+    title: string;
+    summary: string;
+    simulated: boolean;
+    ticker?: string;
+    amount_usd?: string;
+    checks: AgentCheck[];
+    details: Record<string, unknown>;
+    would_change_if: string[];
+  };
+};
+
 export type WatcherStatus = {
   enabled: boolean;
   running: boolean;
