@@ -30,6 +30,12 @@ import { getToken, quoteTokens, tokenRegistry } from "./tokenRegistry";
 import { loadSampleSnapshot } from "./agent/fixtures";
 import { recentDecisions } from "./agent/ledger";
 import { runAgentCycle } from "./agent/runner";
+import { handleAgentChat, marketOverview } from "./agent/chatTools";
+import { createAlert, deleteAlert, listAlerts, patchAlert, testAlert } from "./agent/alerts";
+import { createPlan, deletePlan, listPlans, patchPlan, runPlan } from "./agent/plans";
+import { readSettings, recentSettingsChanges, resetSettings, setAgentEnabled, updateSettings } from "./agent/settings";
+import { recentSkillCalls } from "./skills/log";
+import { auditToken, getOndoMarketStatus, listOndoTokens, queryTokenInfoDynamic } from "./skills/binanceSkills";
 import universeData from "../config/universe.json" with { type: "json" };
 
 const app = express();
@@ -59,6 +65,7 @@ app.get("/", (_req, res) => {
     health: "/api/health",
     evidence: "/api/evidence",
     agent: "/api/agent/recommend/compact",
+    agentChat: "/api/agent/chat",
     agentPartB: "/api/agent/part-b/run",
     aiAgent: "/api/ai/agent",
     watcher: "/api/watcher/status",
@@ -67,6 +74,117 @@ app.get("/", (_req, res) => {
     readiness: "/api/judge/readiness",
     smoke: "/api/judge/smoke",
     docs: "https://github.com/jordiparis165/circuitstock-agent"
+  });
+});
+
+app.post("/api/agent/chat", async (req, res) => {
+  try {
+    res.json(await handleAgentChat(String(req.body?.message ?? "")));
+  } catch (error) {
+    res.status(400).json({ ok: false, error: error instanceof Error ? error.message : "Agent chat failed." });
+  }
+});
+
+app.get("/api/settings", (_req, res) => {
+  res.json({ ok: true, settings: readSettings(), changes: recentSettingsChanges(10) });
+});
+
+app.put("/api/settings", (req, res) => {
+  const body = req.body ?? {};
+  const settings = body.reset ? resetSettings(body.preset, "user") : updateSettings(body, "user");
+  res.json({ ok: true, settings, changes: recentSettingsChanges(10) });
+});
+
+app.post("/api/settings/kill", (req, res) => {
+  res.json({ ok: true, settings: setAgentEnabled(req.body?.enabled === true, "kill-switch") });
+});
+
+app.get("/api/market/overview", (_req, res) => {
+  res.json(marketOverview());
+});
+
+app.get("/api/portfolio", (_req, res) => {
+  res.json({
+    ok: true,
+    simulated: true,
+    holdings: [],
+    message: "Simulated portfolio is empty until the user confirms a simulated plan or rotation."
+  });
+});
+
+app.get("/api/rebalance/suggestions", async (_req, res) => {
+  const decision = await runAgentCycle({ snapshot: loadSampleSnapshot(), requestId: `suggestion-${Date.now()}` });
+  res.json({ ok: true, simulated: true, suggestions: [decision] });
+});
+
+app.post("/api/rebalance/confirm", (req, res) => {
+  res.json({
+    ok: true,
+    simulated: true,
+    message: "Simulated confirmation recorded. No signature and no broadcast were performed.",
+    requestId: req.body?.requestId ?? crypto.randomUUID()
+  });
+});
+
+app.get("/api/alerts", (_req, res) => res.json({ ok: true, alerts: listAlerts() }));
+app.post("/api/alerts", (req, res) => {
+  try {
+    res.json({ ok: true, alert: createAlert(req.body ?? {}) });
+  } catch (error) {
+    res.status(400).json({ ok: false, error: error instanceof Error ? error.message : "Alert create failed." });
+  }
+});
+app.patch("/api/alerts/:id", (req, res) => {
+  const alert = patchAlert(req.params.id, req.body ?? {});
+  res.status(alert ? 200 : 404).json(alert ? { ok: true, alert } : { ok: false, error: "Alert not found." });
+});
+app.delete("/api/alerts/:id", (req, res) => res.json({ ok: deleteAlert(req.params.id) }));
+app.post("/api/alerts/:id/test", (req, res) => {
+  try {
+    res.json({ ok: true, trigger: testAlert(req.params.id) });
+  } catch (error) {
+    res.status(404).json({ ok: false, error: error instanceof Error ? error.message : "Alert test failed." });
+  }
+});
+
+app.get("/api/plans", (_req, res) => res.json({ ok: true, plans: listPlans() }));
+app.post("/api/plans", (req, res) => res.json({ ok: true, plan: createPlan(req.body ?? {}) }));
+app.patch("/api/plans/:id", (req, res) => {
+  const plan = patchPlan(req.params.id, req.body ?? {});
+  res.status(plan ? 200 : 404).json(plan ? { ok: true, plan } : { ok: false, error: "Plan not found." });
+});
+app.delete("/api/plans/:id", (req, res) => res.json({ ok: deletePlan(req.params.id) }));
+app.post("/api/plans/:id/run", (req, res) => {
+  try {
+    res.json({ ok: true, ...runPlan(req.params.id) });
+  } catch (error) {
+    res.status(404).json({ ok: false, error: error instanceof Error ? error.message : "Plan run failed." });
+  }
+});
+
+app.get("/api/opportunities", async (_req, res) => {
+  res.json({ ok: true, newsEnabled: false, reason: "News source not verified on the free plan.", overview: marketOverview() });
+});
+
+app.get("/api/skills/log", (req, res) => {
+  res.json({ ok: true, calls: recentSkillCalls(Number(req.query.limit) || 25) });
+});
+
+app.get("/api/skills/check", async (_req, res) => {
+  const results = await Promise.allSettled([
+    getOndoMarketStatus(),
+    listOndoTokens(),
+    auditToken("56", "0x0000000000000000000000000000000000000000"),
+    queryTokenInfoDynamic("56", "0x0000000000000000000000000000000000000000")
+  ]);
+  res.json({
+    ok: true,
+    checks: results.map((result, index) => ({
+      skill: ["binance-tokenized-securities-info:market", "binance-tokenized-securities-info:list", "query-token-audit", "query-token-info"][index],
+      ok: result.status === "fulfilled",
+      error: result.status === "rejected" ? String(result.reason) : undefined
+    })),
+    calls: recentSkillCalls(10)
   });
 });
 
