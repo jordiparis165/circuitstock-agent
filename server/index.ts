@@ -16,6 +16,7 @@ import {
   getRwaUnderlyingMarket,
   getRwaUnderlyingProfile,
   getWalletBalances,
+  measureRoundTripCost,
   searchRwaToken,
   simulateEvmTransaction
 } from "./binanceWeb3";
@@ -26,7 +27,7 @@ import { setKilled, startWatcher, tick, watcherStatus, type WatcherDeps } from "
 import { getPolicy, updatePolicy } from "./policy";
 import { getReferencePrices, referencePriceProvidersConfigured, startAlpacaStream, type ReferencePrice } from "./referencePrice";
 import { computeSpread, isOutlier, isTradeable, normalizePerSharePrice, parseCandleCloses } from "./spread";
-import { getToken, quoteTokens, tokenRegistry } from "./tokenRegistry";
+import { getQuoteToken, getToken, platformIdForSource, quoteTokens, tokenRegistry } from "./tokenRegistry";
 import universeData from "../config/universe.json" with { type: "json" };
 
 const app = express();
@@ -372,7 +373,9 @@ function tokensToOpportunities(tokens: RwaToken[]): Opportunity[] {
         liquidityUsd,
         shareRatio: Number(token.tokenToShareRatio),
         marketWindow: toMarketWindow(token),
-        contractReady: Boolean(token.tokenContractAddress && quoteTokens.usdc.address),
+        // Platform-aware: Ondo needs USDT configured, bStock needs USDC - checking only USDC would
+        // wrongly mark an Ondo token "ready" with no USDT address set (or vice versa).
+        contractReady: Boolean(token.tokenContractAddress && getQuoteToken(token.platformId, "56").address),
         tokenAddress: token.tokenContractAddress,
         decimals: Number(token.decimals || 18),
         score,
@@ -450,9 +453,17 @@ async function applyIndependentReference(opportunities: Opportunity[]): Promise<
   return repriced.sort((a, b) => b.score - a.score);
 }
 
-async function getTokenBySymbol(
-  symbol: string
-): Promise<{ symbol: string; address: string; decimals: number; name: string; underlyingTicker?: string } | null> {
+async function getTokenBySymbol(symbol: string): Promise<{
+  symbol: string;
+  address: string;
+  decimals: number;
+  name: string;
+  underlyingTicker?: string;
+  platformId: string;
+  // This app only ever queries/trades on BSC (56) - every token returned here comes from a
+  // BSC-scoped fetch, so hardcoding it is accurate, not a guess, as long as that stays true.
+  binanceChainId: string;
+} | null> {
   const local = getToken(symbol);
   for (const cached of rwaCache.values()) {
     const found = cached.tokens.find((token) => token.tokenSymbol.toLowerCase() === symbol.toLowerCase());
@@ -462,13 +473,23 @@ async function getTokenBySymbol(
         address: found.tokenContractAddress,
         decimals: Number(found.decimals || 18),
         name: found.underlyingName || found.tokenName,
-        underlyingTicker: found.underlyingTicker
+        underlyingTicker: found.underlyingTicker,
+        platformId: found.platformId,
+        binanceChainId: "56"
       };
     }
   }
   if (local?.address) {
     const inferredTicker = local.symbol.replace(/B$/i, "").replace(/x$/i, "");
-    return { symbol: local.symbol, address: local.address, decimals: local.decimals, name: local.name, underlyingTicker: inferredTicker };
+    return {
+      symbol: local.symbol,
+      address: local.address,
+      decimals: local.decimals,
+      name: local.name,
+      underlyingTicker: inferredTicker,
+      platformId: platformIdForSource(local.source),
+      binanceChainId: "56"
+    };
   }
   const { tokens } = await fetchRwaTokens(SUPPORTED_PLATFORMS, [9, 4, 11]);
   const found = tokens.find((token) => token.tokenSymbol.toLowerCase() === symbol.toLowerCase());
@@ -478,7 +499,9 @@ async function getTokenBySymbol(
     address: found.tokenContractAddress,
     decimals: Number(found.decimals || 18),
     name: found.underlyingName || found.tokenName,
-    underlyingTicker: found.underlyingTicker
+    underlyingTicker: found.underlyingTicker,
+    platformId: found.platformId,
+    binanceChainId: "56"
   };
 }
 
@@ -828,13 +851,14 @@ async function prepareExecution(
   if (!token) {
     return { ok: false, mode: "unknown_token", error: `Unknown token symbol: ${symbol}` };
   }
-  if (!quoteTokens.usdc.address) {
-    return { ok: false, mode: "missing_contracts", error: "BSC_USDC_ADDRESS is missing." };
+  const quoteToken = getQuoteToken(token.platformId, token.binanceChainId);
+  if (!quoteToken.address) {
+    return { ok: false, mode: "missing_contracts", error: `${quoteToken.symbol} contract address is missing.` };
   }
 
-  const amount = BigInt(Math.round(amountUsd * 10 ** quoteTokens.usdc.decimals)).toString();
-  const fromTokenAddress = side === "buy" ? quoteTokens.usdc.address : token.address;
-  const toTokenAddress = side === "buy" ? token.address : quoteTokens.usdc.address;
+  const amount = BigInt(Math.round(amountUsd * 10 ** quoteToken.decimals)).toString();
+  const fromTokenAddress = side === "buy" ? quoteToken.address : token.address;
+  const toTokenAddress = side === "buy" ? token.address : quoteToken.address;
   const quote = await getBinanceQuote({ fromTokenAddress, toTokenAddress, amount, walletAddress, slippageBps });
   const selectedQuote = quote.ok ? pickQuote(quote.data) : null;
   const quoteId = typeof selectedQuote?.quoteId === "string" ? selectedQuote.quoteId : null;
@@ -1406,22 +1430,23 @@ app.post("/api/quote", async (req, res) => {
     return;
   }
 
-  if (!quoteTokens.usdc.address) {
+  const quoteToken = getQuoteToken(token.platformId, token.binanceChainId);
+  if (!quoteToken.address) {
     res.json({
       ok: false,
       mode: "missing_contracts",
-      error: "Add token contract addresses and BSC_USDC_ADDRESS in .env before requesting live quotes.",
+      error: `Add token contract addresses and the ${quoteToken.symbol} address in .env before requesting live quotes.`,
       token,
-      quoteToken: quoteTokens.usdc
+      quoteToken
     });
     return;
   }
 
   const slippageBps = resolveSlippageBps(req.body?.slippageBps);
-  const amount = BigInt(Math.round(amountUsd * 10 ** quoteTokens.usdc.decimals)).toString();
+  const amount = BigInt(Math.round(amountUsd * 10 ** quoteToken.decimals)).toString();
   const quote = await getBinanceQuote({
-    fromTokenAddress: side === "buy" ? quoteTokens.usdc.address : token.address,
-    toTokenAddress: side === "buy" ? token.address : quoteTokens.usdc.address,
+    fromTokenAddress: side === "buy" ? quoteToken.address : token.address,
+    toTokenAddress: side === "buy" ? token.address : quoteToken.address,
     amount,
     walletAddress,
     slippageBps
@@ -1438,16 +1463,17 @@ app.post("/api/swap", async (req, res) => {
   const quoteId = req.body?.quoteId ? String(req.body.quoteId) : undefined;
   const token = await getTokenBySymbol(symbol);
 
-  if (!token || !quoteTokens.usdc.address || !walletAddress || !quoteId) {
+  const quoteToken = token ? getQuoteToken(token.platformId, token.binanceChainId) : null;
+  if (!token || !quoteToken?.address || !walletAddress || !quoteId) {
     res.status(400).json({ ok: false, error: "symbol, walletAddress and quoteId are required for swap building." });
     return;
   }
 
   const slippageBps = resolveSlippageBps(req.body?.slippageBps);
-  const amount = BigInt(Math.round(amountUsd * 10 ** quoteTokens.usdc.decimals)).toString();
+  const amount = BigInt(Math.round(amountUsd * 10 ** quoteToken.decimals)).toString();
   const swap = await getBinanceSwap({
-    fromTokenAddress: side === "buy" ? quoteTokens.usdc.address : token.address,
-    toTokenAddress: side === "buy" ? token.address : quoteTokens.usdc.address,
+    fromTokenAddress: side === "buy" ? quoteToken.address : token.address,
+    toTokenAddress: side === "buy" ? token.address : quoteToken.address,
     amount,
     walletAddress,
     quoteId,
@@ -1636,7 +1662,20 @@ const watcherDeps: WatcherDeps = {
     return applyIndependentReference(tokensToOpportunities(tokens));
   },
   prepare: (symbol, side, amountUsd, walletAddress, slippageBps) =>
-    prepareExecution(symbol, side, amountUsd, walletAddress, resolveSlippageBps(slippageBps))
+    prepareExecution(symbol, side, amountUsd, walletAddress, resolveSlippageBps(slippageBps)),
+  measureRoundTripCost: async (tokenAddress, side, amountUsd) => {
+    const platforms = [...universeBySymbol.values()];
+    const entry = platforms.find((p) => p.tokenContractAddress.toLowerCase() === tokenAddress.toLowerCase());
+    const quoteToken = getQuoteToken(entry?.platformId, "56");
+    if (!quoteToken.address) return null;
+    const amount = BigInt(Math.round(amountUsd * 10 ** quoteToken.decimals)).toString();
+    // measureRoundTripCost always buys first then sells back - for a "sell"/trim candidate this
+    // still answers the question that matters (is this route expensive to transact), just not
+    // literally in the candidate's own direction. Documented, not silently assumed equivalent.
+    void side;
+    const result = await measureRoundTripCost(tokenAddress, quoteToken.address, amount, undefined);
+    return result.ok ? result.costPct : null;
+  }
 };
 
 app.get("/api/watcher/status", (_req, res) => {

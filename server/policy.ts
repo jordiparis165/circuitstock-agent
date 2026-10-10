@@ -17,6 +17,12 @@ export type AutoPolicy = {
   cooldownSec: number;
   allowedSymbols: string[];
   walletAddress?: string;
+  // Hard cap on the MEASURED round-trip cost (measureRoundTripCost - buy then sell-back the exact
+  // amount received, never priceImpactPercent). A route this expensive is rejected regardless of
+  // how good the gross spread looks. See docs/cross-issuer-spreads.md for why priceImpactPercent
+  // alone can't be trusted (observed as low as ~0.1% on a route whose real round-trip cost was
+  // 11-53%).
+  maxRoundTripCostPct: number;
   // TEMPORARY: one-time cumulative spend cap for the build/test phase only (set via
   // AUTO_TEST_LIFETIME_USD). Remove this field, its env var, and the evaluate() check below
   // before final delivery - it is not meant to be a permanent product limit and is intentionally
@@ -25,7 +31,9 @@ export type AutoPolicy = {
 };
 
 // Fields the end user can tune for their own risk/budget from the UI (Agent Studio). Everything
-// else (enabled, mode, intervalSec, walletAddress, testLifetimeCapUsd) stays operator/env-only.
+// else (enabled, mode, intervalSec, walletAddress, testLifetimeCapUsd, maxRoundTripCostPct) stays
+// operator/env-only - maxRoundTripCostPct in particular is a hard safety invariant, not a risk
+// preference, so it's deliberately not exposed for a user to loosen from the UI.
 export type EditablePolicy = Pick<
   AutoPolicy,
   "minSpreadBps" | "minScore" | "minLiquidityUsd" | "maxTradeUsd" | "maxDailyUsd" | "maxSlippageBps" | "cooldownSec" | "allowedSymbols"
@@ -38,6 +46,11 @@ export type Candidate = {
   spreadBps: number;
   score: number;
   liquidityUsd: number;
+  // Measured via measureRoundTripCost() (buy-quote then sell-quote the exact amount received) -
+  // deliberately NOT priceImpactPercent, which was found to understate real cost by 10-50x on at
+  // least one route. Undefined means "not measured yet" and is NOT treated as a pass - the caller
+  // (watcher.ts) must measure this before evaluate() runs, or the trade is skipped upstream.
+  roundTripCostPct?: number;
 };
 
 export type Decision = {
@@ -83,6 +96,7 @@ export function loadPolicy(): AutoPolicy {
     maxDailyUsd: num("AUTO_MAX_DAILY_USD", 100),
     maxSlippageBps: num("AUTO_MAX_SLIPPAGE_BPS", 50),
     cooldownSec: num("AUTO_COOLDOWN_SEC", 7200),
+    maxRoundTripCostPct: num("AUTO_MAX_ROUND_TRIP_COST_PCT", 1),
     // Empty whitelist means nothing is allowed.
     allowedSymbols: (pickEnv(["AUTO_ALLOWED_SYMBOLS"]) ?? "")
       .split(",")
@@ -205,5 +219,13 @@ export function evaluate(candidate: Candidate, policy: AutoPolicy, state: Watche
     violations.push(`cooldown active for ${symbol}`);
   }
   if (!policy.walletAddress) violations.push("AUTO_WALLET_ADDRESS is not set");
+  // Deliberately NOT priceImpactPercent - that field was found to understate real cost by 10-50x on
+  // at least one route (see docs/cross-issuer-spreads.md). undefined means "not measured yet",
+  // which fails closed (caller must measure before calling evaluate(), never treated as a pass).
+  if (candidate.roundTripCostPct === undefined) {
+    violations.push("round-trip cost not measured");
+  } else if (candidate.roundTripCostPct > policy.maxRoundTripCostPct) {
+    violations.push(`measured round-trip cost ${candidate.roundTripCostPct.toFixed(3)}% > max ${policy.maxRoundTripCostPct}%`);
+  }
   return violations;
 }
