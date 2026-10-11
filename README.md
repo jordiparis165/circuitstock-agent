@@ -6,7 +6,7 @@ CircuitStock monitors tokenized-stock prices on BSC against reference prices, de
 
 Repository: https://github.com/jordiparis165/circuitstock-agent
 
-Status: production demo deployed on Vercel + Render with a public GitHub repo, live Binance Web3 API checks, live BSC RPC readiness proof, and an in-app Judge Mode.
+Status: production demo deployed on Vercel + Render with live Binance Web3 API checks, live BSC RPC readiness proof, an in-app Judge Mode, and a repository that can be made public for judging.
 
 Live frontend: https://circuitstock-agent.vercel.app
 Live API: https://circuitstock-agent-api.onrender.com
@@ -37,6 +37,8 @@ Live API: https://circuitstock-agent-api.onrender.com
   - User signature only, no broadcast.
 - Compact agent endpoint for Wallet Skills / BNB Agent Studio.
 - Plain-language stock prompt endpoint for Agentic Wallet style interactions.
+- Conversational Agent Studio endpoint for simulated buys, premium checks, alert drafts, plan drafts and settings proposals.
+- Risk rules and dry-run watcher policy with kill switch, whitelist, budget, slippage, cooldown and mandatory simulation.
 - RWA platform discovery and ticker search.
 - Skill files in `skills/circuitstock/`.
 - Screenshots in `screenshots/`.
@@ -59,6 +61,7 @@ Live API: https://circuitstock-agent-api.onrender.com
 - `docs/dev-experience-report.md` - hackathon DX report.
 - `docs/demo-script.md` - video script under four minutes.
 - `docs/submission.md` and `SUBMISSION.md` - final submission notes.
+- `docs/FINAL_DELIVERABLE.md` - pasteable final form text and send checklist.
 - `docs/team-onboarding.md` - teammate setup.
 - `docs/agent-studio-x402.md` - BNB Agent Studio, ERC-8004/ERC-8183, and x402 packaging plan.
 - `docs/final-deploy-runbook.md` - exact Render/Vercel/public repo submission steps.
@@ -194,6 +197,11 @@ Invoke-RestMethod -Uri http://localhost:8787/api/agent/interpret -Method Post -C
 - `GET /api/evidence` - sanitized evidence of Binance modules, endpoints, status and latency.
 - `GET /api/b402/manifest` - demo payment manifest for premium agent monitoring.
 - `POST /api/premium/signal` - b402/x402-shaped `402 Payment Required` demo route; send `x-demo-payment: paid` for hackathon demo mode.
+- `POST /api/agent/chat` - conversational agent for simulated buys, premium checks, alert drafts, plan drafts and settings proposals.
+- `GET|PUT /api/settings`, `POST /api/settings/kill` - agent guardrail settings and kill switch.
+- `GET|POST|PATCH|DELETE /api/alerts` - in-app alert drafts.
+- `GET|POST|PATCH|DELETE /api/plans` - simulated recurring plan drafts.
+- `GET /api/skills/check`, `GET /api/skills/log` - Wallet Skills availability and evidence log.
 - `GET /api/watcher/status` - dry-run autonomous watcher status, policy and recent decisions.
 - `POST /api/watcher/tick` - manually run one policy-gated dry-run tick.
 - `POST /api/watcher/kill`, `POST /api/watcher/resume` - judge-visible kill switch controls.
@@ -210,6 +218,7 @@ Invoke-RestMethod -Uri http://localhost:8787/api/agent/interpret -Method Post -C
 
 - `docs/dev-experience-report.md`
 - `docs/demo-script.md`
+- `docs/FINAL_DELIVERABLE.md`
 - `docs/submission.md`
 - `SUBMISSION.md`
 - `skills/circuitstock/SKILL.md`
@@ -225,6 +234,7 @@ Last verified locally:
 - `/api/health` returns configured API status without exposing secrets.
 - `/api/execution/prepare` returns quote, official approval, approval calldata, swap calldata, wallet check, gas check, research check, simulation summary, and `broadcasted: false`.
 - `/api/agent/recommend/compact` returns a compact recommendation payload for agent runtimes.
+- `/api/agent/chat` returns structured simulated agent cards for buy, premium, alert, plan and settings prompts.
 - `/api/ai/agent` returns LLM reasoning when `OPENAI_API_KEY` is configured and deterministic fallback otherwise.
 - `/api/wallet/readiness/:address` proves live BSC RPC wallet state without broadcasting.
 - `/api/b402/manifest` and `/api/premium/signal` expose the demo payment-gated agent shape.
@@ -261,5 +271,5 @@ Create a Vercel project from this repo:
 1. Record the demo video using `docs/demo-script.md`.
 2. Add the video link to `SUBMISSION.md`.
 3. Add fresh desktop/mobile screenshots if the UI changes.
-4. Keep the repo public for judging.
+4. Make the repo public before submitting, or invite judges if the hackathon accepts private repos.
 5. Rotate Binance Web3 credentials after the hackathon or immediately if a secret was shared outside Render.

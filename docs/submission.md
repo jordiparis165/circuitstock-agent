@@ -4,169 +4,82 @@
 
 CircuitStock Agent
 
-## One-liner
+## Short Description
 
-An agentic BSC tokenized-stocks scanner that detects on-chain/reference spreads, prepares rebalances with Binance Web3 quotes, builds swap calldata, and simulates before any wallet signature.
+CircuitStock turns tokenized stocks on BSC into a judge-friendly agent workflow. It scans bStocks/Ondo prices, ranks spreads, explains risks, prepares quote/approval/swap/simulation evidence, and exposes an AI-agent interface for prompts, alerts, plans and risk settings. It is intentionally no-broadcast: every execution path stops before a user-controlled wallet signature.
 
-## What It Uses
+## Tracks And Prize Fit
 
-- Binance Web3 RWA Data API
-- Binance Web3 Market API
-- Binance Web3 Trading API
-- Binance Web3 Transaction API
-- Binance Web3 Wallet API
-- BNB Smart Chain mainnet
-- Wallet-side signing boundary
+- Tokenized stocks: live RWA scanner, bStocks/Ondo filters and stock-first UX.
+- Binance Web3 API depth: RWA, Market, Trading, Transaction, Wallet and evidence endpoints.
+- Agentic Wallet / Wallet Skills: compact agent payloads, conversational `/api/agent/chat`, read-only skills log and no-broadcast transaction boundary.
+- BNB Agent Studio direction: settings, guardrails, alerts, recurring plan drafts, dry-run watcher and kill switch.
+- Developer Experience: documented integration lessons, smoke endpoints, reproducible tests and clear limitations.
 
-## How To Run
+## APIs Used
 
-```bash
-npm install
-npm run dev
-```
-
-Open:
-
-```text
-http://localhost:5173
-```
+- `GET /api/v1/dex/market/rwa/tokens`
+- `GET /api/v1/dex/market/rwa/platforms`
+- `GET /api/v1/dex/market/rwa/search`
+- `GET /api/v1/dex/market/rwa/underlying-profile`
+- `GET /api/v1/dex/market/rwa/underlying-market`
+- `GET /api/v1/dex/market/candles`
+- `GET /api/v1/dex/aggregator/quote`
+- `GET /api/v1/dex/aggregator/approve-transaction`
+- `GET /api/v1/dex/aggregator/swap`
+- `GET /api/v1/dex/pre-transaction/gas-price`
+- `POST /api/v1/dex/pre-transaction/gas-limit`
+- `POST /api/v1/dex/pre-transaction/simulate`
+- `GET /api/v1/dex/balance/all-token-balances-by-address`
+- `GET /api/v1/dex/market/portfolio/overview`
 
 ## Judge Checklist
 
-- API key remains server-side.
-- `GET /api/market` returns live RWA data.
-- `GET /api/evidence` returns sanitized API modules, endpoints, status, and latency.
-- `GET /api/rwa/platforms` and `GET /api/rwa/search?q=TSLA` prove platform discovery and ticker resolution.
-- `GET /api/research/:symbol` returns candles, volatility, underlying profile, and underlying market context.
-- `GET /api/wallet/:address` checks balances and portfolio state before execution.
-- `POST /api/execution/prepare` returns quote, official approval check, approval transaction payload, swap payload, gas checks, wallet snapshot, research context, and simulation result.
-- `POST /api/agent/recommend/compact` returns the concise payload intended for Wallet Skills / Agent Studio.
-- `POST /api/agent/interpret` accepts plain-language stock-trading prompts and returns research or a no-broadcast execution preview.
-- `POST /api/ai/agent` returns an optional LLM reasoning recommendation grounded in live scanner, basket, watcher and readiness context.
-- `GET /api/b402/manifest` exposes the demo payment manifest for premium agent monitoring.
-- `POST /api/premium/signal` returns `402 Payment Required` unless the hackathon demo payment header is supplied.
-- `GET /api/watcher/status` exposes the dry-run autonomous runtime policy, kill switch, budget and latest decisions.
-- `POST /api/watcher/tick` runs one manual dry-run evaluation for judge review.
-- `POST /api/baskets/plan` returns a thematic no-broadcast basket plan for AI Chips, Magnificent 7, ETF or Buffett-style baskets.
-- `GET /api/judge/readiness` and `GET /api/judge/smoke` provide one-call judge verification.
-- No automatic broadcast exists in the app.
-- `POST /api/agent/recommend` exposes the same logic for agent runtimes.
+- `GET /api/health`: confirms server config without exposing secrets.
+- `GET /api/evidence`: sanitized Binance module calls and latency.
+- `GET /api/market`: RWA scanner with cache status.
+- `POST /api/execution/prepare`: quote, approval payload, swap payload, gas checks and simulation.
+- `POST /api/agent/recommend/compact`: short agent-ready recommendation.
+- `POST /api/agent/chat`: conversational buy, premium check, alert, plan and settings drafts.
+- `GET|PUT /api/settings`: agent risk/guardrail settings.
+- `GET /api/skills/check`: Wallet Skills availability check with failures shown honestly.
+- `GET /api/judge/smoke`: one-call readiness proof.
+- `npm run build` and `npm run test -- --run`: local verification.
 
 ## Agent Skills Shape
 
 ### `scan_tokenized_stock_spreads`
 
-Input:
-
-```json
-{
-  "platforms": ["bstock", "ondo"],
-  "tabs": [9, 4, 11],
-  "risk": "balanced"
-}
-```
-
-Output: ranked opportunities with spread, liquidity, score, action, and reason.
+Scans selected bStocks/Ondo platforms and returns ranked opportunities with spread, liquidity, action, reason, score and cache status.
 
 ### `prepare_rebalance`
 
-Input:
-
-```json
-{
-  "symbol": "TSLAb",
-  "side": "buy",
-  "amountUsd": 10,
-  "walletAddress": "0x..."
-}
-```
-
-Output: quote, selected route, official approval evidence, swap calldata, gas checks, wallet snapshot, simulation result, and a no-broadcast checklist.
+Returns quote, official approval transaction, swap calldata, gas checks, wallet snapshot, simulation summary and required user action. It never broadcasts.
 
 ### `plain_language_stock_prompt`
 
-Input:
+Turns prompts such as `buy 50 USD of AAPL` into a simulated agent card with checks and explanations.
 
-```json
-{
-  "prompt": "Quote only: buy $10 of TSLA tokenized stock",
-  "walletAddress": "0x..."
-}
-```
+### `draft_alert`
 
-Output: parsed intent, RWA search/profile/market data, optional prepared execution, and a plain-language summary.
+Creates an in-app alert draft from prompts such as `préviens moi quand NVDA est sous la prime 0.2`.
 
-### `premium_signal_demo`
+### `draft_recurring_plan`
 
-Input:
+Creates a simulated plan draft. The plan does not execute real transactions.
 
-```json
-{
-  "risk": "balanced",
-  "maxTradeUsd": 10,
-  "platforms": ["bstock"],
-  "tabs": [9]
-}
-```
+### `risk_settings_guardrail`
 
-Output: b402/x402-compatible demo payment response. With header `x-demo-payment: paid`, returns premium monitoring summary and top opportunities. This is demo mode, not production settlement.
+Reads or proposes settings such as preset, max order, allowed issuers and kill switch state. Changes require explicit confirmation.
 
-### `dry_run_watcher`
+## Known Limitations
 
-Input: no body.
+- Conversational agent actions are simulated/dry-run for safety.
+- OpenAI reasoning is optional and requires `OPENAI_API_KEY`; fallback stays deterministic.
+- Independent stock reference needs Alpaca/Finnhub keys plus a populated universe file. Without those, fallback/cached status is explicit.
+- Wallet `eth_signTransaction` support varies by browser wallet. The app keeps payloads inspectable when signing is unavailable.
+- Render free tier can cold-start.
 
-Call:
+## Final Form Text
 
-```text
-POST /api/watcher/tick
-```
-
-Output: policy decision and current watcher status. The watcher is intentionally dry-run by default, requires `AUTO_ALLOWED_SYMBOLS`, respects daily budget/cooldown/spread/liquidity rules, and refuses live mode until an executor is wired.
-
-### `plan_thematic_basket`
-
-Input:
-
-```json
-{
-  "theme": "ai-chips",
-  "amountUsd": 25,
-  "risk": "balanced",
-  "platforms": ["bstock"]
-}
-```
-
-Output: basket thesis, legs, allocation, spread, liquidity, score and required user action. Legs are `buy` only when the token is below reference price; otherwise they remain `watch`.
-
-### `ai_reasoning_copilot`
-
-Input:
-
-```json
-{
-  "prompt": "Given the live scanner and risk rules, what should we do next?",
-  "risk": "balanced",
-  "maxTradeUsd": 10,
-  "platforms": ["bstock"],
-  "tabs": [9],
-  "theme": "ai-chips"
-}
-```
-
-Output: short action-oriented AI recommendation. Uses OpenAI Responses API when `OPENAI_API_KEY` is configured; otherwise returns deterministic fallback. No broadcast.
-
-## Deployment
-
-- API target: Render web service using `render.yaml`.
-- Frontend target: Vercel static Vite app using `VITE_API_BASE_URL`.
-- Secrets stay only in Render environment variables.
-
-## Final Submission Checklist
-
-- Make the GitHub repository public before judging.
-- Add Render API URL to `SUBMISSION.md`.
-- Add Vercel frontend URL to `SUBMISSION.md`.
-- Record a demo video under four minutes from `docs/demo-script.md`.
-- Add desktop and mobile screenshots in `screenshots/`.
-- Rotate Binance Web3 credentials after the event.
-- See `docs/agent-studio-x402.md` for the ERC-8004 / ERC-8183 / x402 packaging plan.
+CircuitStock is an agentic tokenized-stocks cockpit for BSC. It combines live Binance Web3 RWA data, Trading API quotes, official approval/swap calldata, gas checks and transaction simulation with an AI-agent layer for recommendations, alerts, recurring plans and guardrails. The product is intentionally safe: no backend or frontend path broadcasts transactions. Judges can verify the full flow through the live dashboard, Agent Studio, `/api/judge/smoke`, and the documented demo script.

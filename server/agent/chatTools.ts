@@ -7,6 +7,7 @@ import type { AgentCard, AgentChatResponse, AgentCheck } from "./toolTypes";
 import type { AgentSnapshot, SnapshotToken } from "./types";
 
 const disclaimer = "Informational and experimental only. Simulated actions are not financial advice and never sign or broadcast transactions.";
+const knownTickers = ["AAPL", "NVDA", "TSLA", "MSFT", "AMZN", "META", "GOOG", "GOOGL", "SPY", "IBM", "QCOM", "NOK", "TSM", "IBMB", "QCOMB", "NOKB", "TSMB", "SPYB", "NVDAB", "TSLAB", "MSFTB"];
 
 function pass(id: string, label: string, value: string, threshold: string, source = "settings", age_s?: number): AgentCheck {
   return { id, label, status: "pass", value, threshold, source, age_s };
@@ -21,6 +22,8 @@ function na(id: string, label: string, value = "not available", source = "not ve
 }
 
 function parseTicker(text: string, fallback = "NVDA"): string {
+  const known = knownTickers.find((symbol) => new RegExp(`\\b${symbol}\\b`, "i").test(text));
+  if (known) return known;
   const ignored = new Set([
     "USD",
     "USDT",
@@ -39,6 +42,17 @@ function parseTicker(text: string, fallback = "NVDA"): string {
     "ACHETE",
     "ACHETER",
     "ALERTE",
+    "ALERT",
+    "NOTIFY",
+    "WHEN",
+    "IS",
+    "IT",
+    "GOOD",
+    "MOMENT",
+    "TO",
+    "EST",
+    "VIENS",
+    "PR",
     "PLAN"
   ]);
   const match = [...text.matchAll(/\b[A-Z]{2,5}\b/gi)]

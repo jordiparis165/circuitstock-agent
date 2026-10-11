@@ -1,60 +1,87 @@
 # Demo Script
 
-Target length: under 4 minutes.
+Target length: 3:30 to 4:00.
 
-## 0:00 - 0:30: Problem
+## 0:00 - 0:25: Hook
 
-Tokenized equities trade on-chain while traditional reference markets have different hours and infrastructure. CircuitStock watches the on-chain/reference spread and prepares cautious actions.
+"CircuitStock is an AI agent cockpit for tokenized stocks on BSC. It scans bStocks and Ondo spreads, explains what changed, prepares execution evidence, and stops before broadcast so the user stays in control."
 
-## 0:30 - 1:10: Live Scanner
+Open: `https://circuitstock-agent.vercel.app`
 
-Open the dashboard. Show the live watchlist powered by Binance Web3 RWA Data API. Point out:
+## 0:25 - 0:55: Monitor
 
-- tokenized stock symbol
-- source platform
-- on-chain price
-- reference price
-- spread in basis points
-- liquidity-aware score
+Show the dashboard:
 
-## 1:10 - 1:45: First Stock Flow
+- platform filters: bStocks/Ondo
+- live/cached market status
+- spread table
+- API evidence
 
-Use the **First stock flow**. Pick TSLA or NVDA, keep `$10`, and click **Preview buy**. Explain that a non-crypto-native user can start from a familiar stock, while the app still uses the agent engine behind the scenes.
+Say: "The scanner is powered by Binance Web3 RWA and Trading APIs. When production APIs rate-limit or cache, the UI labels that state instead of pretending."
 
-## 1:45 - 2:20: Agent Recommendation
+## 0:55 - 1:35: Execution Evidence
 
-Show the right panel. The agent ranks actions by spread, liquidity, and market status. It uses small default trade sizing, requires simulation, and never broadcasts automatically.
+Click a recommendation or use the first-stock flow.
 
-## 2:20 - 3:10: Execution Preparation
+Show:
 
-Click **Prepare execution**.
+- quote ID
+- approval target
+- swap calldata
+- gas/simulation result
+- `No broadcast`
 
-Show the checklist:
+Say: "This is not an auto-trader. CircuitStock builds and simulates the transaction, then the user wallet decides whether to sign. If simulation fails, that becomes the product message."
 
-- quote received
-- approval calldata extracted
-- swap calldata built
-- transaction simulated
-- no broadcast
+## 1:35 - 2:35: Agent Studio
 
-Point out quote ID, vendor, price impact, approval target, and simulation feedback. If simulation says allowance is missing, explain that this is exactly why the app separates approval signing from swap signing.
+Open **Agent Studio**.
 
-## 3:10 - 3:35: Wallet Boundary
+Prompt 1:
 
-Connect wallet if available. Try **Sign/copy approval** and **Sign/copy swap**. Explain that wallet support may vary, but CircuitStock never broadcasts automatically and keeps the transaction payload inspectable.
+```text
+buy 50 USD of AAPL
+```
 
-## 3:35 - 4:00: Prize Fit
+Show the simulated card, checks and `would_change_if`.
 
-Mention:
+Prompt 2:
 
-- RWA Data API
-- Trading API
-- Transaction API
-- Agent-friendly `/api/agent/recommend`
-- Compact skill endpoint `/api/agent/recommend/compact`
-- Natural-language endpoint `/api/agent/interpret`
-- Dry-run watcher `/api/watcher/status` and `/api/watcher/tick`
-- Thematic basket planner `/api/baskets/plan`
-- Judge smoke test `/api/judge/smoke`
-- b402 demo manifest `/api/b402/manifest`
-- ready path for Agentic Wallet / Wallet Skills and BNB Agent Studio
+```text
+préviens moi quand NVDA est sous la prime 0.2
+```
+
+Show alert draft.
+
+Say: "The agent can advise, draft alerts and propose plans, but execution stays simulated unless the user confirms. OpenAI is optional; the demo has deterministic fallback so it still runs without paid LLM credit."
+
+## 2:35 - 3:15: Risk Rules
+
+Show settings/guardrails:
+
+- kill switch
+- max trade
+- max daily budget
+- allowed symbols
+- slippage
+- cooldown
+- dry-run watcher
+
+Say: "This is the winning safety angle: an agent with risk rules, not a black-box button."
+
+## 3:15 - 3:45: Judge Mode
+
+Open **Judge Mode** and run smoke checks.
+
+Show:
+
+- `/api/health`
+- `/api/evidence`
+- `/api/judge/smoke`
+- Wallet Skills availability/log
+
+Say: "The judge can test the API surface without needing our private keys."
+
+## 3:45 - 4:00: Close
+
+"CircuitStock combines live tokenized-stock infrastructure with a practical AI-agent UX: monitor, explain, prepare, simulate, require user control. No automatic broadcast, no hidden key exposure."
