@@ -11,7 +11,7 @@ export function OpportunitiesPage() {
   return (
     <>
       <div className="pageHead">
-        <p className="eyebrow">Opportunities</p>
+        <p className="eyebrow">Opportunities &middot; experimental</p>
         <h1>News-aware ticker screening</h1>
         <p className="lede">Pairs live metrics (premium, volatility, distance from 52-week range) with recent headlines. The model only sees the data the code hands it, and every headline it cites is checked to actually exist.</p>
       </div>

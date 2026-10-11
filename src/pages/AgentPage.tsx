@@ -1,63 +1,91 @@
-import { CheckCircle2, HelpCircle, Send, XCircle } from "lucide-react";
+import { CheckCircle2, HelpCircle, Send, XCircle, Zap } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useLocation } from "react-router-dom";
-import { getJson, type AgentChatResponse } from "../lib/api";
+import { ApiError, getJson, type AgentChatResponse, type AgentStatus, type ChatTool } from "../lib/api";
 import { useShell } from "../lib/shell";
 
-const examplePrompts = [
-  "Buy 50$ of NVDA",
-  "Premium of AAPL?",
-  "Rotate my AAPL position",
-  "Alert me when the premium drops below 0.3%",
-  "Set up a weekly 50$ plan on NVDA",
-  "Switch to the prudent preset"
+// Quick actions call the tools directly: same checks, no model, no cost. They are what keeps the
+// product usable when the LLM key is missing or the daily budget is spent.
+const quickActions: Array<{ label: string; tool: ChatTool; body: Record<string, string> }> = [
+  { label: "Cheapest issuer for $50 of AAPL", tool: "propose_buy", body: { ticker: "AAPL", amount_usd: "50" } },
+  { label: "Premium of NVDA", tool: "get_premium", body: { ticker: "NVDA" } },
+  { label: "Premium of TSLA", tool: "get_premium", body: { ticker: "TSLA" } },
+  { label: "Suggest a rotation", tool: "propose_rotation", body: {} },
+  { label: "Propose the prudent preset", tool: "propose_setting_change", body: { preset: "prudent" } }
 ];
 
+const examplePrompts = [
+  "Is AAPL expensive right now?",
+  "Buy 200 dollars of NVDA",
+  "Alert me when the NVDA premium drops below 0.3%",
+  "Set up a weekly 50$ plan on TSLA"
+];
+
+type Entry = { asked: string; response: AgentChatResponse };
+
 export function AgentPage() {
-  const { settings, refresh } = useShell();
+  const { settings } = useShell();
   const location = useLocation();
   const [message, setMessage] = useState("");
-  const [history, setHistory] = useState<Array<{ message: string; response: AgentChatResponse }>>([]);
+  const [history, setHistory] = useState<Entry[]>([]);
   const [sending, setSending] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [status, setStatus] = useState<AgentStatus | null>(null);
 
-  async function send(text = message) {
-    if (!text.trim() || sending) return;
+  useEffect(() => {
+    getJson<AgentStatus>("/api/agent/status").then(setStatus).catch(() => undefined);
+  }, []);
+
+  async function post(asked: string, url: string, body: Record<string, unknown>) {
+    if (sending) return;
     setSending(true);
+    setError(null);
     try {
-      const response = await getJson<AgentChatResponse>("/api/agent/chat", {
+      const response = await getJson<AgentChatResponse>(url, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ message: text })
+        body: JSON.stringify(body)
       });
-      setHistory((current) => [{ message: text, response }, ...current]);
+      setHistory((current) => [{ asked, response }, ...current]);
       setMessage("");
-      refresh();
+    } catch (caught) {
+      setError(caught instanceof ApiError ? caught.message : "The agent could not be reached.");
     } finally {
       setSending(false);
     }
   }
 
-  // A ticker clicked on the Dashboard arrives as navigation state and is sent straight away.
+  const sendMessage = (text = message) => (text.trim() ? post(text, "/api/agent/chat", { message: text }) : undefined);
+  const runAction = (action: (typeof quickActions)[number]) =>
+    post(action.label, "/api/agent/action", { tool: action.tool, ...action.body });
+
+  // A ticker clicked on the Dashboard arrives as navigation state; run it as a quick action so it
+  // works even without a model.
   useEffect(() => {
-    const prompt = (location.state as { prompt?: string } | null)?.prompt;
-    if (prompt) {
-      send(prompt);
+    const ticker = (location.state as { ticker?: string } | null)?.ticker;
+    if (ticker) {
+      post(`Premium of ${ticker}`, "/api/agent/action", { tool: "get_premium", ticker });
       window.history.replaceState({}, "");
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [location.state]);
 
+  const llmDown = status ? !status.llm.configured : false;
+
   return (
     <>
       <div className="pageHead">
         <p className="eyebrow">Agent</p>
-        <h1>Talk to the agent in plain language</h1>
+        <h1>Ask about any ticker, in your own words</h1>
         <p className="lede">
-          It calls tools, never trades on its own, and always shows the checks behind its answer. Every action is <strong>simulated</strong> - nothing
-          is ever signed or broadcast.
+          The model only decides <strong>which tool to run and with what arguments</strong>. Every price, check and threshold below is computed by
+          code, never written by the model - so it cannot invent a number. Everything is <strong>simulated</strong>: nothing is signed or broadcast.
         </p>
-        {settings && !settings.agent_enabled && (
-          <p className="warnLine">The agent is disabled in Settings - re-enable it to get real answers.</p>
+        {settings && !settings.agent_enabled && <p className="warnLine">The agent is disabled in Settings - re-enable it to get answers.</p>}
+        {llmDown && (
+          <p className="warnLine">
+            Free-text chat is unavailable ({status?.llm.reason}). The quick actions below still run the same tools, with the same checks.
+          </p>
         )}
       </div>
 
@@ -66,27 +94,47 @@ export function AgentPage() {
           <input
             value={message}
             onChange={(event) => setMessage(event.target.value)}
-            onKeyDown={(event) => event.key === "Enter" && send()}
-            placeholder="Ask anything, e.g. buy 50$ of NVDA"
+            onKeyDown={(event) => event.key === "Enter" && sendMessage()}
+            placeholder={llmDown ? "Free-text chat needs a model - use a quick action below" : "e.g. is AAPL expensive right now?"}
+            disabled={llmDown}
             autoFocus
           />
-          <button onClick={() => send()} disabled={sending}>
+          <button onClick={() => sendMessage()} disabled={sending || llmDown}>
             <Send size={16} />
             {sending ? "Thinking..." : "Send"}
           </button>
         </div>
-        <div className="chipRow">
-          {examplePrompts.map((prompt) => (
-            <button key={prompt} type="button" className="chip" onClick={() => send(prompt)} disabled={sending}>
-              {prompt}
-            </button>
-          ))}
+
+        {!llmDown && (
+          <div className="chipRow">
+            {examplePrompts.map((prompt) => (
+              <button key={prompt} type="button" className="chip" onClick={() => sendMessage(prompt)} disabled={sending}>
+                {prompt}
+              </button>
+            ))}
+          </div>
+        )}
+
+        <div className="quickActions">
+          <p className="quickActionsLabel">
+            <Zap size={13} />
+            Quick actions - no model, no cost
+          </p>
+          <div className="chipRow">
+            {quickActions.map((action) => (
+              <button key={action.label} type="button" className="chip solid" onClick={() => runAction(action)} disabled={sending}>
+                {action.label}
+              </button>
+            ))}
+          </div>
         </div>
+
+        {error && <p className="warnLine">{error}</p>}
       </section>
 
       {history.map((entry, index) => (
         <article className="panel answer" key={index}>
-          <p className="askedLine">{entry.message}</p>
+          <p className="askedLine">{entry.asked}</p>
           <p className="statusLine">
             <strong>{entry.response.reply}</strong>
           </p>
@@ -105,6 +153,7 @@ export function AgentPage() {
                   {check.label}
                   {check.value ? ` - ${check.value}` : ""}
                   {check.threshold ? ` (vs ${check.threshold})` : ""}
+                  {check.source ? <em className="checkSource">{check.source}</em> : null}
                 </span>
               ))}
             </div>
@@ -122,10 +171,21 @@ export function AgentPage() {
           )}
 
           <footer className="answerFoot">
-            <span>Tools: {entry.response.tools.join(", ")}</span>
+            <span>{entry.response.tools.length > 0 ? `Tools: ${entry.response.tools.join(", ")}` : "No tool ran"}</span>
+            <span>{provenance(entry.response)}</span>
           </footer>
         </article>
       ))}
     </>
   );
+}
+
+// Says exactly how much the model was involved, so nobody can mistake a deterministic result for
+// a generated one, or the reverse.
+function provenance(response: AgentChatResponse): string {
+  if (!response.llm?.available) return "Computed by code - no model involved";
+  const routed = response.llm.routedTo ? `routed to ${response.llm.routedTo}` : "routed";
+  return response.llm.explained
+    ? `${response.llm.model}: ${routed}, wording only - figures computed by code`
+    : `${response.llm.model}: ${routed} - figures computed by code`;
 }

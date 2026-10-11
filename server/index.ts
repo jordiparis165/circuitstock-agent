@@ -31,7 +31,9 @@ import { getQuoteToken, getToken, platformIdForSource, quoteTokens, tokenRegistr
 import { loadSampleSnapshot } from "./agent/fixtures";
 import { recentDecisions } from "./agent/ledger";
 import { runAgentCycle } from "./agent/runner";
-import { handleAgentChat, marketOverview } from "./agent/chatTools";
+import { handleAgentChat, marketOverview, runChatTool } from "./agent/chatTools";
+import { CHAT_TOOLS, llmStatus } from "./agent/llm";
+import { budgetSnapshot, checkRateLimit } from "./agent/llmBudget";
 import { createAlert, deleteAlert, listAlerts, patchAlert, testAlert } from "./agent/alerts";
 import { createPlan, deletePlan, listPlans, patchPlan, runPlan } from "./agent/plans";
 import { readSettings, recentSettingsChanges, resetSettings, setAgentEnabled, updateSettings } from "./agent/settings";
@@ -78,12 +80,49 @@ app.get("/", (_req, res) => {
   });
 });
 
+// Free-text chat: spends LLM credit, so it is rate limited per IP. The quick-action route below
+// costs nothing and stays open, which is what keeps the demo usable if the budget runs out.
 app.post("/api/agent/chat", async (req, res) => {
+  const ip = String(req.ip ?? req.socket.remoteAddress ?? "unknown");
+  const limit = checkRateLimit(ip);
+  if (!limit.allowed) {
+    res.setHeader("Retry-After", String(limit.retryAfterSec));
+    return res.status(429).json({
+      ok: false,
+      error: `Too many requests. Try again in ${limit.retryAfterSec}s.`,
+      retryAfterSec: limit.retryAfterSec
+    });
+  }
+  const message = String(req.body?.message ?? "").slice(0, 500);
+  if (!message.trim()) return res.status(400).json({ ok: false, error: "message is required." });
   try {
-    res.json(await handleAgentChat(String(req.body?.message ?? "")));
+    res.json(await handleAgentChat(message));
   } catch (error) {
     res.status(400).json({ ok: false, error: error instanceof Error ? error.message : "Agent chat failed." });
   }
+});
+
+// Deterministic tool call: same tools, same checks, no model involved.
+app.post("/api/agent/action", async (req, res) => {
+  const tool = String(req.body?.tool ?? "");
+  if (!CHAT_TOOLS.includes(tool as (typeof CHAT_TOOLS)[number])) {
+    return res.status(400).json({ ok: false, error: `Unknown tool. Expected one of: ${CHAT_TOOLS.join(", ")}` });
+  }
+  try {
+    const response = await runChatTool(tool as (typeof CHAT_TOOLS)[number], {
+      ticker: req.body?.ticker ? String(req.body.ticker) : undefined,
+      amount_usd: req.body?.amount_usd ? String(req.body.amount_usd) : undefined,
+      preset: req.body?.preset ? String(req.body.preset) : undefined,
+      message: req.body?.message ? String(req.body.message).slice(0, 500) : undefined
+    });
+    res.json({ ...response, llm: { available: false, reason: "Quick action: tools run without the model." } });
+  } catch (error) {
+    res.status(400).json({ ok: false, error: error instanceof Error ? error.message : "Agent action failed." });
+  }
+});
+
+app.get("/api/agent/status", (_req, res) => {
+  res.json({ ok: true, llm: llmStatus(), budget: budgetSnapshot(), tools: CHAT_TOOLS, settings: readSettings() });
 });
 
 app.get("/api/settings", (_req, res) => {
@@ -1138,6 +1177,7 @@ async function prepareExecution(
 }
 
 app.get("/api/health", (_req, res) => {
+  const providers = referencePriceProvidersConfigured();
   res.json({
     ok: true,
     service: "circuitstock-agent",
@@ -1147,7 +1187,19 @@ app.get("/api/health", (_req, res) => {
     quotePath: config.quotePath,
     baseUrl: config.baseUrl,
     bscRpcUrl: config.bscRpcUrl,
-    supportedPlatforms: SUPPORTED_PLATFORMS
+    supportedPlatforms: SUPPORTED_PLATFORMS,
+    // Per-source truth, so a judge (or we) can see what is actually live without reading code.
+    sources: {
+      binanceWeb3: Boolean(config.apiKey && config.apiSecret),
+      alpaca: providers.alpaca,
+      finnhub: providers.finnhub,
+      // The independent reference needs a provider *and* a populated universe; either one
+      // missing silently falls back to the Binance-derived figure, which is not independent.
+      independentReferenceActive: (providers.alpaca || providers.finnhub) && universeBySymbol.size > 0,
+      universeSize: universeBySymbol.size,
+      llm: llmStatus()
+    },
+    llmBudget: budgetSnapshot()
   });
 });
 

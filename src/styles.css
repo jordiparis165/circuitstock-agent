@@ -1255,6 +1255,26 @@ button.ghost:hover:not(:disabled) {
   background: rgba(246, 70, 93, 0.1);
 }
 
+.expTag {
+  padding: 1px 6px;
+  margin-left: auto;
+  border-radius: 4px;
+  background: #1d2126;
+  color: #5b6570;
+  font-size: 0.6rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.killButton.small {
+  height: 38px;
+  padding: 0 14px;
+  border-radius: 8px;
+  font-size: 0.85rem;
+  white-space: nowrap;
+}
+
 .killedBox {
   border-color: #f6465d;
 }
@@ -1478,4 +1498,49 @@ button.ghost:hover:not(:disabled) {
   color: #f0b90b;
   font-size: 0.86rem;
   font-weight: 600;
+}
+
+.quickActions {
+  padding-top: 12px;
+  margin-top: 12px;
+  border-top: 1px solid #1d2126;
+}
+
+.quickActionsLabel {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0 0 9px;
+  color: #5b6570;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.chip.solid {
+  border-color: #2b3139;
+  color: #eaecef;
+  background: #1a1d22;
+}
+
+.chip.solid:hover:not(:disabled) {
+  border-color: #0ecb81;
+  color: #0ecb81;
+  background: rgb(14 203 129 / 8%);
+}
+
+.checkSource {
+  margin-left: 6px;
+  color: #5b6570;
+  font-size: 0.68rem;
+  font-style: normal;
+  opacity: 0.85;
+}
+
+.answerFoot {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 16px;
+  justify-content: space-between;
 }

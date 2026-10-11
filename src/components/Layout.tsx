@@ -5,6 +5,7 @@ import {
   Link2,
   MessageCircle,
   Newspaper,
+  Power,
   Puzzle,
   ScrollText,
   SlidersHorizontal,
@@ -20,7 +21,7 @@ const navItems = [
   { to: "/portfolio", label: "Portfolio", icon: Wallet, end: false },
   { to: "/alerts", label: "Alerts", icon: Bell, end: false },
   { to: "/plans", label: "Plans", icon: CalendarClock, end: false },
-  { to: "/opportunities", label: "Opportunities", icon: Newspaper, end: false },
+  { to: "/opportunities", label: "Opportunities", icon: Newspaper, end: false, experimental: true },
   { to: "/settings", label: "Settings", icon: SlidersHorizontal, end: false },
   { to: "/activity", label: "Activity", icon: ScrollText, end: false },
   { to: "/skills", label: "Skills", icon: Puzzle, end: false }
@@ -41,6 +42,16 @@ export function Layout() {
     setSettings(settingsData?.settings ?? null);
     setOverview(overviewData);
     setLoading(false);
+  }
+
+  async function toggleAgent() {
+    const next = !settings?.agent_enabled;
+    const data = await getJson<{ settings: PivotSettings }>("/api/settings/kill", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ enabled: next })
+    });
+    setSettings(data.settings);
   }
 
   async function connectWallet() {
@@ -108,6 +119,7 @@ export function Layout() {
               <NavLink key={item.to} to={item.to} end={item.end} className={({ isActive }) => (isActive ? "active" : "")}>
                 <Icon size={18} />
                 {item.label}
+                {"experimental" in item && item.experimental && <span className="expTag">exp</span>}
               </NavLink>
             );
           })}
@@ -143,6 +155,16 @@ export function Layout() {
           </div>
           <div className="topbarActions">
             <span className="simulatedPill">Simulated only</span>
+            {/* T4: the kill switch must be reachable from every page, not just Settings. */}
+            <button
+              className={settings?.agent_enabled ? "killButton small" : "walletButton"}
+              onClick={toggleAgent}
+              disabled={settings === null}
+              title={settings?.agent_enabled ? "Stop all agent actions immediately" : "Allow the agent to produce suggestions again"}
+            >
+              <Power size={15} />
+              {settings?.agent_enabled ? "Disable agent" : "Enable agent"}
+            </button>
             <button className={walletAddress ? "walletButton connected" : "walletButton"} onClick={connectWallet}>
               {walletAddress ? (
                 <>

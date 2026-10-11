@@ -50,7 +50,7 @@ export function DashboardPage() {
     : null;
 
   function askAgent(ticker: string) {
-    navigate("/agent", { state: { prompt: `Premium of ${ticker}?` } });
+    navigate("/agent", { state: { ticker } });
   }
 
   if (loading && !overview) return <p className="hint">Loading market snapshot...</p>;

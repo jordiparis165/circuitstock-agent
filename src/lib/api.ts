@@ -8,9 +8,22 @@ export const FALLBACK_API_BASE = "https://circuitstock-agent-api.onrender.com";
 export const currency = new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" });
 export const compactUsd = new Intl.NumberFormat("en-US", { notation: "compact", maximumFractionDigits: 1 });
 
+export class ApiError extends Error {
+  constructor(readonly status: number, message: string) {
+    super(message);
+  }
+}
+
 export async function getJson<T>(url: string, init?: RequestInit): Promise<T> {
   const response = await fetch(`${API_BASE}${url}`, init);
-  if (!response.ok) throw new Error(`Request failed: ${response.status}`);
+  if (!response.ok) {
+    // Surface the server's own wording (rate limit, validation) instead of a bare status code.
+    const detail = await response
+      .json()
+      .then((body: { error?: string }) => body?.error)
+      .catch(() => undefined);
+    throw new ApiError(response.status, detail ?? `Request failed: ${response.status}`);
+  }
   return response.json() as Promise<T>;
 }
 
@@ -83,6 +96,22 @@ export type AgentChatResponse = {
   card: AgentCard;
   tools: string[];
   disclaimer: string;
+  llm?: {
+    available: boolean;
+    model?: string;
+    routedTo?: string;
+    explained?: boolean;
+    reason?: string;
+  };
+};
+
+export type ChatTool = "propose_buy" | "get_premium" | "propose_rotation" | "create_alert" | "create_plan" | "propose_setting_change";
+
+export type AgentStatus = {
+  ok: boolean;
+  llm: { configured: boolean; model: string; reason?: string };
+  budget: { day: string; tokensUsedToday: number; dailyTokenBudget: number; requestsPerMinutePerIp: number };
+  tools: ChatTool[];
 };
 
 // --- Market overview / dashboard (chatTools.ts marketOverview()) ---

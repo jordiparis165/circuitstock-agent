@@ -88,6 +88,56 @@ export async function auditToken(chainId: string, contractAddress: string): Prom
   );
 }
 
+export type AuditVerdict = {
+  /** False whenever the skill could not actually assess this token. Per the skill's own rule, a
+   *  response is only a verdict when it reports both hasResult and isSupported - anything else is
+   *  "unknown", which must not be read as "safe". */
+  usable: boolean;
+  riskLevel: "LOW" | "MEDIUM" | "HIGH" | "UNKNOWN";
+  /** Risk names the response flagged as hit, for display next to the verdict. */
+  hits: string[];
+  reason?: string;
+};
+
+// The API spells its mid tier "MID"; settings and the UI use "MEDIUM".
+function normalizeRiskLevel(value: unknown): AuditVerdict["riskLevel"] {
+  const raw = String(value ?? "").toUpperCase();
+  if (raw === "HIGH") return "HIGH";
+  if (raw === "MID" || raw === "MEDIUM") return "MEDIUM";
+  if (raw === "LOW") return "LOW";
+  return "UNKNOWN";
+}
+
+/** Applies the skill's validation rule so callers get a decision, not a raw payload. */
+export async function auditTokenVerdict(chainId: string, contractAddress: string): Promise<AuditVerdict> {
+  let payload: unknown;
+  try {
+    payload = await auditToken(chainId, contractAddress);
+  } catch (error) {
+    return { usable: false, riskLevel: "UNKNOWN", hits: [], reason: (error as Error).message };
+  }
+
+  const data = (payload as { data?: Record<string, unknown> })?.data;
+  if (!data) return { usable: false, riskLevel: "UNKNOWN", hits: [], reason: "Audit response had no data block." };
+  if (data.hasResult !== true) return { usable: false, riskLevel: "UNKNOWN", hits: [], reason: "Audit returned no result for this token." };
+  if (data.isSupported !== true) return { usable: false, riskLevel: "UNKNOWN", hits: [], reason: "Token is not supported by the audit skill." };
+
+  const riskItems = (data.riskItems as Array<{ name?: string; details?: Array<{ title?: string; isHit?: boolean }> }>) ?? [];
+  const hits = riskItems
+    .flatMap((item) => (item.details ?? []).filter((detail) => detail.isHit).map((detail) => detail.title ?? item.name ?? "unnamed risk"))
+    .filter(Boolean) as string[];
+
+  return { usable: true, riskLevel: normalizeRiskLevel(data.riskLevelEnum), hits };
+}
+
+/** True when settings say this verdict must block a simulated action. An unusable verdict blocks
+ *  too when audits are required: "we could not check" is not "it is fine". */
+export function auditBlocks(verdict: AuditVerdict, requireAudit: boolean, blockLevel: "MEDIUM" | "HIGH"): boolean {
+  if (!requireAudit) return false;
+  if (!verdict.usable) return true;
+  return blockLevel === "HIGH" ? verdict.riskLevel === "HIGH" : verdict.riskLevel === "HIGH" || verdict.riskLevel === "MEDIUM";
+}
+
 export function queryTokenInfoDynamic(chainId: string, contractAddress: string): Promise<unknown> {
   return getSkillJson("query-token-info", `https://www.binance.com/bapi/defi/v1/public/wallet-direct/buw/wallet/market/token/dynamic/ai`, {
     chainId,
