@@ -5,7 +5,7 @@
 - Live demo: https://circuitstock-agent.vercel.app
 - API: https://circuitstock-agent-api.onrender.com
 - Repository: https://github.com/jordiparis165/circuitstock-agent
-- Demo video: add the recorded link after following `docs/demo-script.md`
+- Demo video: not submitted. Judges should use the live app, repository, report and API smoke endpoints.
 
 ## One-Liner
 

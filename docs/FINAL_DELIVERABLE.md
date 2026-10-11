@@ -7,7 +7,7 @@ Use this as the final send checklist.
 - Frontend: https://circuitstock-agent.vercel.app
 - API: https://circuitstock-agent-api.onrender.com
 - GitHub: https://github.com/jordiparis165/circuitstock-agent
-- Demo video: record with `docs/demo-script.md`, then paste the video URL here.
+- Demo video: not submitted. Judges should use the live app, GitHub repository, this report and API smoke endpoints.
 
 ## Pasteable Summary
 

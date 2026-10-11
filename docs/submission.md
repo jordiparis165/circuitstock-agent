@@ -58,7 +58,7 @@ Returns quote, official approval transaction, swap calldata, gas checks, wallet 
 
 ### `plain_language_stock_prompt`
 
-Turns prompts such as `buy 50 USD of AAPL` into a simulated agent card with checks and explanations.
+Turns prompts such as `buy 50 USD of MSFT` into a simulated agent card with checks and explanations.
 
 ### `draft_alert`
 

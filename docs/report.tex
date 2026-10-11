@@ -1,0 +1,232 @@
+\documentclass[11pt,a4paper]{article}
+
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{geometry}
+\usepackage{hyperref}
+\usepackage{longtable}
+\usepackage{enumitem}
+\usepackage{xcolor}
+
+\geometry{margin=2.2cm}
+\hypersetup{
+  colorlinks=true,
+  linkcolor=black,
+  urlcolor=blue
+}
+
+\setlist[itemize]{leftmargin=1.2em}
+\setlist[enumerate]{leftmargin=1.4em}
+
+\title{\textbf{CircuitStock Agent}\\BNB Hack: Tokenized Stocks Edition}
+\author{Jordi Paris \and Matthieu Balliste}
+\date{October 2026}
+
+\begin{document}
+\maketitle
+
+\begin{abstract}
+CircuitStock Agent is an agentic cockpit for tokenized stocks on BNB Smart Chain. It compares tokenized stock prices across bStocks and Ondo, checks reference and issuer-spread conditions, explains opportunities through an AI-agent interface, drafts alerts and plans, and keeps every action inside a no-broadcast safety boundary. The project combines Binance Web3 APIs, Wallet Skills evidence, deterministic guardrails, a replayable cross-issuer snapshot, and a dashboard-first user experience designed for hackathon judging without requiring a private wallet or paid LLM key.
+\end{abstract}
+
+\section{Submission Links}
+
+\begin{itemize}
+  \item Live frontend: \url{https://circuitstock-agent.vercel.app}
+  \item Live API: \url{https://circuitstock-agent-api.onrender.com}
+  \item GitHub repository: \url{https://github.com/jordiparis165/circuitstock-agent}
+  \item Demo video: not submitted. Judges should use the live app, repository, this report, and the smoke endpoints.
+\end{itemize}
+
+\section{Project Summary}
+
+CircuitStock turns tokenized stocks on BSC into a judge-friendly workflow. The product answers a simple question: when the same stock exposure exists through multiple tokenized issuers, which price should a user trust, and what should an agent do with that information?
+
+The application exposes the following user-facing pages:
+
+\begin{itemize}
+  \item \textbf{Dashboard}: cross-issuer spread and premium overview.
+  \item \textbf{Agent}: natural-language prompts such as \texttt{buy 50 USD of MSFT} or \texttt{previens moi quand NVDA est sous la prime 0.2}.
+  \item \textbf{Portfolio}: simulated holdings and rotation suggestions.
+  \item \textbf{Alerts}: simulated threshold alerts.
+  \item \textbf{Plans}: simulated recurring plan drafts.
+  \item \textbf{Settings}: guardrails, presets, kill switch and change log.
+  \item \textbf{Activity}: decision journal.
+  \item \textbf{Skills}: read-only Wallet Skills checks and call log.
+  \item \textbf{Opportunities}: experimental opportunity surface.
+\end{itemize}
+
+\section{Hackathon Fit}
+
+\begin{longtable}{p{0.28\linewidth}p{0.65\linewidth}}
+\textbf{Track / Prize Angle} & \textbf{CircuitStock Implementation} \\
+\hline
+Tokenized stocks & bStocks/Ondo comparison, stock-first prompts, replayable cross-issuer snapshot and BSC-only flow. \\
+Binance Web3 APIs & Server-side signed requests, RWA data, Market, Trading, Transaction, Wallet and evidence endpoints. \\
+Agentic Wallet / Wallet Skills & Compact agent payloads, conversational endpoint, read-only Wallet Skills checks and no-broadcast boundary. \\
+BNB Agent Studio direction & Settings, guardrails, alert drafts, recurring plan drafts, dry-run watcher and kill switch. \\
+Developer Experience & Smoke endpoints, documented integration lessons, reproducible tests and explicit limitations. \\
+\end{longtable}
+
+\section{Architecture}
+
+The architecture separates model intent from deterministic truth.
+
+\begin{enumerate}
+  \item The user asks a plain-language question.
+  \item The LLM, when configured, only routes the request to a known tool and extracts basic parameters.
+  \item If no LLM key is configured, a narrow deterministic router handles common prompts.
+  \item The selected tool computes every price, premium, threshold and check in TypeScript.
+  \item The result is displayed as a card with checks, sources, thresholds and simulated status.
+\end{enumerate}
+
+The model cannot produce a tradeable number that reaches the user. Prices, checks and policy decisions are computed in code. This keeps the agent useful while reducing hallucination risk.
+
+\section{Binance Web3 API Integration}
+
+CircuitStock uses a server-side Binance Web3 client so API secrets never reach the browser. The integration covers:
+
+\begin{itemize}
+  \item RWA token and platform discovery.
+  \item RWA search, underlying profile and underlying market context.
+  \item Market candles for signal context.
+  \item Aggregator quote and swap-build flow.
+  \item Official approval transaction extraction.
+  \item Gas price, gas limit and pre-transaction simulation.
+  \item Wallet balances and portfolio checks where the endpoints are available.
+\end{itemize}
+
+\subsection{Important Developer Experience Findings}
+
+\begin{itemize}
+  \item The base URL is \texttt{https://web3.binance.com/build}.
+  \item The signed path must include \texttt{/build}; signing only \texttt{/api/v1/...} causes signature failures.
+  \item Signed requests use \texttt{X-OC-APIKEY}, \texttt{X-OC-TIMESTAMP} and \texttt{X-OC-SIGN}.
+  \item Both \texttt{GET} and \texttt{POST} signing are required.
+  \item Quote IDs expire quickly, so calldata must be built immediately after a quote is selected.
+  \item Simulation can return HTTP success while the EVM execution fails; the app reads and displays nested status instead of treating HTTP 200 as success.
+  \item Wallet \texttt{eth\_signTransaction} support varies, so the app keeps payloads inspectable when signing is unavailable.
+  \item Wallet Skills calls can fail because of region, headers or endpoint changes; failures are logged instead of hidden.
+\end{itemize}
+
+\section{Agent Layer}
+
+The Agent page supports the following tool classes:
+
+\begin{itemize}
+  \item \texttt{propose\_buy}: drafts a simulated buy card.
+  \item \texttt{get\_premium}: checks whether a ticker is attractive under current settings.
+  \item \texttt{propose\_rotation}: drafts a simulated issuer rotation.
+  \item \texttt{create\_alert}: creates an in-app alert draft.
+  \item \texttt{create\_plan}: creates a simulated recurring plan.
+  \item \texttt{propose\_setting\_change}: proposes settings without writing them.
+\end{itemize}
+
+Example prompt validated in production:
+
+\begin{verbatim}
+buy 50 USD of MSFT
+\end{verbatim}
+
+This returns a simulated card selecting the cheaper issuer in the replay snapshot, with no signature and no broadcast.
+
+Second prompt validated in production:
+
+\begin{verbatim}
+previens moi quand NVDA est sous la prime 0.2
+\end{verbatim}
+
+This creates an alert draft for NVDA and marks it as simulated/in-app only.
+
+\section{Safety Boundary}
+
+CircuitStock is deliberately not an auto-trader. The deployed product has no automatic broadcast path. The safety design includes:
+
+\begin{itemize}
+  \item Simulated-only buys, rotations, alerts and plans.
+  \item Global kill switch.
+  \item Explicit allowed issuer and symbol controls.
+  \item Maximum order and daily budget settings.
+  \item Slippage and cooldown rules.
+  \item Measured round-trip cost gate.
+  \item Simulation gate before any execution preview.
+  \item Settings changes proposed by the agent but not written automatically.
+\end{itemize}
+
+\section{What Is Real}
+
+\begin{itemize}
+  \item Binance Web3 API integration.
+  \item Server-side signed API client.
+  \item Wallet Skills checks and logging.
+  \item Replay snapshot generated from Binance RWA data.
+  \item Deterministic agent tools and guardrails.
+  \item Settings, alerts, plans and activity persistence.
+  \item Production frontend on Vercel and API on Render.
+  \item Local test suite and production endpoint checks.
+\end{itemize}
+
+\section{What Is Simulated or Optional}
+
+\begin{itemize}
+  \item Buys, rotations, recurring plans and alert execution are simulated.
+  \item OpenAI routing and wording are optional. Without \texttt{OPENAI\_API\_KEY}, common prompts use deterministic fallback.
+  \item Independent reference pricing requires Alpaca/Finnhub keys and a populated \texttt{config/universe.json}.
+  \item The replay snapshot demonstrates cross-issuer behavior; it is not proof of live fillable arbitrage.
+  \item Render free tier can cold-start.
+\end{itemize}
+
+\section{API Surface for Judges}
+
+\begin{longtable}{p{0.38\linewidth}p{0.55\linewidth}}
+\textbf{Endpoint} & \textbf{Purpose} \\
+\hline
+\texttt{GET /api/health} & Server, source and LLM status without exposing secrets. \\
+\texttt{GET /api/evidence} & Sanitized API evidence and latency. \\
+\texttt{GET /api/market/overview} & Replay market heatmap. \\
+\texttt{POST /api/agent/chat} & Free-text agent prompt. \\
+\texttt{POST /api/agent/action} & Direct tool call without model. \\
+\texttt{GET /api/settings} & Agent risk and guardrail settings. \\
+\texttt{POST /api/settings/kill} & Global kill switch. \\
+\texttt{GET /api/alerts} & Alert drafts. \\
+\texttt{GET /api/plans} & Recurring plan drafts. \\
+\texttt{GET /api/skills/check} & Wallet Skills availability and failure reporting. \\
+\texttt{GET /api/skills/log} & Wallet Skills call log. \\
+\texttt{GET /api/judge/smoke} & One-call judge readiness check. \\
+\end{longtable}
+
+\section{Verification}
+
+The final code was verified locally with:
+
+\begin{verbatim}
+npm run build
+npm run test -- --run
+\end{verbatim}
+
+The final passing state was:
+
+\begin{itemize}
+  \item Production build: passing.
+  \item Test suite: 41 tests passing.
+  \item Git branch state: only \texttt{main} remains locally and remotely.
+  \item Vercel deployment: successful.
+  \item Render API: production endpoints respond.
+\end{itemize}
+
+\section{Known Production State}
+
+At submission time:
+
+\begin{itemize}
+  \item Binance Web3 API keys are configured server-side.
+  \item OpenAI is not configured in production; deterministic fallback is active.
+  \item Alpaca/Finnhub independent references are not configured in production; the app reports the reference source as inactive.
+  \item \texttt{query-token-info} Wallet Skill can return HTTP 404; the app reports this honestly in \texttt{/api/skills/check}.
+\end{itemize}
+
+\section{Conclusion}
+
+CircuitStock focuses on a realistic winning angle: tokenized-stock infrastructure is powerful, but an agent must be transparent, constrained and verifiable. The project combines Binance Web3 APIs, Wallet Skills evidence, cross-issuer analysis, deterministic guardrails and a usable dashboard. It intentionally stops before broadcast, making the product safe to judge while still showing how an agentic tokenized-stock workflow can work on BSC.
+
+\end{document}
