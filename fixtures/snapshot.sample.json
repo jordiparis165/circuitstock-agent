@@ -1,38 +1,853 @@
 {
-  "ts": 1791486000,
+  "ts": 1791716205,
   "mode": "paper",
+  "recordedFrom": "binance-web3-rwa",
   "market": {
-    "open": true,
-    "state": "regular",
-    "next_open": 1791466200,
-    "next_close": 1899999999
+    "open": false,
+    "state": "closed",
+    "next_open": 1791763500,
+    "next_close": 1791791700
   },
   "pairs": [
     {
-      "ticker": "AAPL",
+      "ticker": "IBM",
       "chain": "56",
       "a": {
         "platform": "ondo",
-        "address": "0x1111111111111111111111111111111111111111",
-        "price_per_share": "229.10",
-        "price_age_s": 21,
-        "liquidity_usd": "550000"
+        "address": "0xe8ff70859ce4cbd72e4352b4fb45f5bf39d07464",
+        "price_per_share": "231.84",
+        "price_age_s": 0,
+        "liquidity_usd": "0"
       },
       "b": {
         "platform": "bstock",
-        "address": "0x2222222222222222222222222222222222222222",
-        "price_per_share": "231.25",
-        "price_age_s": 18,
-        "liquidity_usd": "710000"
+        "address": "0xfa273b076feb8c0fb34e554ae341082323d016a3",
+        "price_per_share": "226.84",
+        "price_age_s": 0,
+        "liquidity_usd": "0"
       },
-      "gross_spread_pct": "0.9384",
-      "reference": {
-        "price": "230.20",
-        "source": "alpaca",
-        "age_s": 3,
-        "premium_pct": "0.45"
-      }
+      "gross_spread_pct": "2.2048",
+      "tradable": true,
+      "reference": null
+    },
+    {
+      "ticker": "AXTI",
+      "chain": "56",
+      "a": {
+        "platform": "ondo",
+        "address": "0x0c50323af81d5c33822c6add256fb9093d42bc74",
+        "price_per_share": "68.80",
+        "price_age_s": 0,
+        "liquidity_usd": "0"
+      },
+      "b": {
+        "platform": "bstock",
+        "address": "0x9bdc8b470dbf89dbcb123587c6f5e49cca3463be",
+        "price_per_share": "67.52",
+        "price_age_s": 0,
+        "liquidity_usd": "0"
+      },
+      "gross_spread_pct": "1.8934",
+      "tradable": true,
+      "reference": null
+    },
+    {
+      "ticker": "AAOI",
+      "chain": "56",
+      "a": {
+        "platform": "ondo",
+        "address": "0x149bda9e7251dc36f536d1fe7f92a5ea203f4f3d",
+        "price_per_share": "109.87",
+        "price_age_s": 0,
+        "liquidity_usd": "0"
+      },
+      "b": {
+        "platform": "bstock",
+        "address": "0x10343ef7da3301493d7ecb647d68a288c6c1db2f",
+        "price_per_share": "111.72",
+        "price_age_s": 0,
+        "liquidity_usd": "0"
+      },
+      "gross_spread_pct": "1.6807",
+      "tradable": true,
+      "reference": null
+    },
+    {
+      "ticker": "LITE",
+      "chain": "56",
+      "a": {
+        "platform": "ondo",
+        "address": "0x0facafb97ffdba3cae88512070af49bd30674cd9",
+        "price_per_share": "1108.79",
+        "price_age_s": 0,
+        "liquidity_usd": "0"
+      },
+      "b": {
+        "platform": "bstock",
+        "address": "0x64748bea17b6d19e242adf20425de2440c656142",
+        "price_per_share": "1092.96",
+        "price_age_s": 0,
+        "liquidity_usd": "0"
+      },
+      "gross_spread_pct": "1.4487",
+      "tradable": true,
+      "reference": null
+    },
+    {
+      "ticker": "ORCL",
+      "chain": "56",
+      "a": {
+        "platform": "ondo",
+        "address": "0x03e4bd1ea53f1da84513da0319d1f03dd1bbcf93",
+        "price_per_share": "142.72",
+        "price_age_s": 0,
+        "liquidity_usd": "0"
+      },
+      "b": {
+        "platform": "bstock",
+        "address": "0x4684d9887fc1c71cba7bab8e88835cec217eb598",
+        "price_per_share": "141.13",
+        "price_age_s": 0,
+        "liquidity_usd": "0"
+      },
+      "gross_spread_pct": "1.1277",
+      "tradable": true,
+      "reference": null
+    },
+    {
+      "ticker": "QCOM",
+      "chain": "56",
+      "a": {
+        "platform": "ondo",
+        "address": "0xfbd4d681c92ead6af0e49950c8b2e47eeacbb2db",
+        "price_per_share": "178.20",
+        "price_age_s": 0,
+        "liquidity_usd": "0"
+      },
+      "b": {
+        "platform": "bstock",
+        "address": "0x5f7a56e877b9130608bf8be962621011182fefe1",
+        "price_per_share": "176.37",
+        "price_age_s": 0,
+        "liquidity_usd": "0"
+      },
+      "gross_spread_pct": "1.0387",
+      "tradable": true,
+      "reference": null
+    },
+    {
+      "ticker": "SPY",
+      "chain": "56",
+      "a": {
+        "platform": "ondo",
+        "address": "0x6a708ead771238919d85930b5a0f10454e1c331a",
+        "price_per_share": "787.44",
+        "price_age_s": 0,
+        "liquidity_usd": "0"
+      },
+      "b": {
+        "platform": "bstock",
+        "address": "0x7138b48df7d98d7e3cc221bfe7192d0a178182d8",
+        "price_per_share": "779.55",
+        "price_age_s": 0,
+        "liquidity_usd": "0"
+      },
+      "gross_spread_pct": "1.0127",
+      "tradable": true,
+      "reference": null
+    },
+    {
+      "ticker": "TSM",
+      "chain": "56",
+      "a": {
+        "platform": "ondo",
+        "address": "0xc37042a7a4fa510d8884a433762ab87257b91965",
+        "price_per_share": "458.16",
+        "price_age_s": 0,
+        "liquidity_usd": "0"
+      },
+      "b": {
+        "platform": "bstock",
+        "address": "0xab78b89b5bb00236be0b4b20704cbfa04efc711c",
+        "price_per_share": "453.71",
+        "price_age_s": 0,
+        "liquidity_usd": "0"
+      },
+      "gross_spread_pct": "0.9799",
+      "tradable": true,
+      "reference": null
+    },
+    {
+      "ticker": "BABA",
+      "chain": "56",
+      "a": {
+        "platform": "ondo",
+        "address": "0xd5964f3fcee8d649995ab88f04b8982539c282d2",
+        "price_per_share": "112.19",
+        "price_age_s": 0,
+        "liquidity_usd": "0"
+      },
+      "b": {
+        "platform": "bstock",
+        "address": "0x4ef9d3062c7f6eba4aae4990c5036598c6eff4ec",
+        "price_per_share": "111.10",
+        "price_age_s": 0,
+        "liquidity_usd": "0"
+      },
+      "gross_spread_pct": "0.9770",
+      "tradable": true,
+      "reference": null
+    },
+    {
+      "ticker": "NOK",
+      "chain": "56",
+      "a": {
+        "platform": "ondo",
+        "address": "0xe9518cb0010c717db69001f1418eff9e97330137",
+        "price_per_share": "10.39",
+        "price_age_s": 0,
+        "liquidity_usd": "0"
+      },
+      "b": {
+        "platform": "bstock",
+        "address": "0x7c4d7a180d737dd5a70d8065a90e6746a69c37ea",
+        "price_per_share": "10.31",
+        "price_age_s": 0,
+        "liquidity_usd": "0"
+      },
+      "gross_spread_pct": "0.7348",
+      "tradable": true,
+      "reference": null
+    },
+    {
+      "ticker": "AVGO",
+      "chain": "56",
+      "a": {
+        "platform": "ondo",
+        "address": "0x0ed2e3180edf393e6bf8db124bd15ddd54de150a",
+        "price_per_share": "365.74",
+        "price_age_s": 0,
+        "liquidity_usd": "0"
+      },
+      "b": {
+        "platform": "bstock",
+        "address": "0x76682c454467b3a1150ad8b6a92fc5ee2c21d7ed",
+        "price_per_share": "363.11",
+        "price_age_s": 0,
+        "liquidity_usd": "0"
+      },
+      "gross_spread_pct": "0.7232",
+      "tradable": true,
+      "reference": null
+    },
+    {
+      "ticker": "QQQ",
+      "chain": "56",
+      "a": {
+        "platform": "ondo",
+        "address": "0x0cde6936d305d5b34667fc46425e852efd73559a",
+        "price_per_share": "754.46",
+        "price_age_s": 0,
+        "liquidity_usd": "0"
+      },
+      "b": {
+        "platform": "bstock",
+        "address": "0x205812cdbed920aff76c6580abd681a46d11efc7",
+        "price_per_share": "750.97",
+        "price_age_s": 0,
+        "liquidity_usd": "0"
+      },
+      "gross_spread_pct": "0.4651",
+      "tradable": true,
+      "reference": null
+    },
+    {
+      "ticker": "TQQQ",
+      "chain": "56",
+      "a": {
+        "platform": "ondo",
+        "address": "0xe42cfb20e00912409b77a602b5bdcff3c7acc5f4",
+        "price_per_share": "81.57",
+        "price_age_s": 0,
+        "liquidity_usd": "0"
+      },
+      "b": {
+        "platform": "bstock",
+        "address": "0x462b5f13b7c7748279358962925c5de83bb9e598",
+        "price_per_share": "81.21",
+        "price_age_s": 0,
+        "liquidity_usd": "0"
+      },
+      "gross_spread_pct": "0.4464",
+      "tradable": true,
+      "reference": null
+    },
+    {
+      "ticker": "MSFT",
+      "chain": "56",
+      "a": {
+        "platform": "ondo",
+        "address": "0x6bfe75d1ad432050ea973c3a3dcd88f02e2444c3",
+        "price_per_share": "537.44",
+        "price_age_s": 0,
+        "liquidity_usd": "0"
+      },
+      "b": {
+        "platform": "bstock",
+        "address": "0x80106cb3ead06659a5ad19df39d9b4733863b9b0",
+        "price_per_share": "535.07",
+        "price_age_s": 0,
+        "liquidity_usd": "0"
+      },
+      "gross_spread_pct": "0.4425",
+      "tradable": true,
+      "reference": null
+    },
+    {
+      "ticker": "EWY",
+      "chain": "56",
+      "a": {
+        "platform": "ondo",
+        "address": "0x12b7adc48416a103f63e7e6210f62c81dfb91fd0",
+        "price_per_share": "177.24",
+        "price_age_s": 0,
+        "liquidity_usd": "0"
+      },
+      "b": {
+        "platform": "bstock",
+        "address": "0xbe82f76637dba2c114c41df856c2c51e522e2cb8",
+        "price_per_share": "177.88",
+        "price_age_s": 0,
+        "liquidity_usd": "0"
+      },
+      "gross_spread_pct": "0.3639",
+      "tradable": true,
+      "reference": null
+    },
+    {
+      "ticker": "CBRS",
+      "chain": "56",
+      "a": {
+        "platform": "ondo",
+        "address": "0x441a4d4fc23f17f4cf23e3d60f12d2bd6f176728",
+        "price_per_share": "164.39",
+        "price_age_s": 0,
+        "liquidity_usd": "0"
+      },
+      "b": {
+        "platform": "bstock",
+        "address": "0xe81c6bb0266cd68b4f17278531dd03ea1f12da4e",
+        "price_per_share": "164.96",
+        "price_age_s": 0,
+        "liquidity_usd": "0"
+      },
+      "gross_spread_pct": "0.3455",
+      "tradable": true,
+      "reference": null
+    },
+    {
+      "ticker": "WDC",
+      "chain": "56",
+      "a": {
+        "platform": "ondo",
+        "address": "0xceb29848d04ad3cb46e1fe8e45b82ffac39d797d",
+        "price_per_share": "396.11",
+        "price_age_s": 0,
+        "liquidity_usd": "0"
+      },
+      "b": {
+        "platform": "bstock",
+        "address": "0xebe29695f8047c13d36e7a790ca8c1b239ffad1c",
+        "price_per_share": "397.46",
+        "price_age_s": 0,
+        "liquidity_usd": "0"
+      },
+      "gross_spread_pct": "0.3408",
+      "tradable": true,
+      "reference": null
+    },
+    {
+      "ticker": "CRWV",
+      "chain": "56",
+      "a": {
+        "platform": "ondo",
+        "address": "0x76e39171cb665a35981e744e2ceb7012f76caeac",
+        "price_per_share": "82.42",
+        "price_age_s": 0,
+        "liquidity_usd": "0"
+      },
+      "b": {
+        "platform": "bstock",
+        "address": "0x33e7317e17838fee56b10fe8d0b9ca6ca3090c95",
+        "price_per_share": "82.69",
+        "price_age_s": 0,
+        "liquidity_usd": "0"
+      },
+      "gross_spread_pct": "0.3319",
+      "tradable": true,
+      "reference": null
+    },
+    {
+      "ticker": "HOOD",
+      "chain": "56",
+      "a": {
+        "platform": "ondo",
+        "address": "0x19601179a60f55ff6636f5d1a8b6671053bd60a8",
+        "price_per_share": "109.11",
+        "price_age_s": 0,
+        "liquidity_usd": "0"
+      },
+      "b": {
+        "platform": "bstock",
+        "address": "0xa394dcea3fd3847fd793afbfd163e2e3858b7c65",
+        "price_per_share": "109.47",
+        "price_age_s": 0,
+        "liquidity_usd": "0"
+      },
+      "gross_spread_pct": "0.3253",
+      "tradable": true,
+      "reference": null
+    },
+    {
+      "ticker": "GOOGL",
+      "chain": "56",
+      "a": {
+        "platform": "ondo",
+        "address": "0x091fc7778e6932d4009b087b191d1ee3bac5729a",
+        "price_per_share": "351.92",
+        "price_age_s": 0,
+        "liquidity_usd": "0"
+      },
+      "b": {
+        "platform": "bstock",
+        "address": "0x3f53de71c126bdabae20f9cd64848d317f6c3238",
+        "price_per_share": "350.81",
+        "price_age_s": 0,
+        "liquidity_usd": "0"
+      },
+      "gross_spread_pct": "0.3160",
+      "tradable": true,
+      "reference": null
+    },
+    {
+      "ticker": "NVDA",
+      "chain": "56",
+      "a": {
+        "platform": "ondo",
+        "address": "0xa9ee28c80f960b889dfbd1902055218cba016f75",
+        "price_per_share": "231.18",
+        "price_age_s": 0,
+        "liquidity_usd": "0"
+      },
+      "b": {
+        "platform": "bstock",
+        "address": "0x02fca66c1d1afb4e2a7884261eb00f63598a7436",
+        "price_per_share": "230.57",
+        "price_age_s": 0,
+        "liquidity_usd": "0"
+      },
+      "gross_spread_pct": "0.2649",
+      "tradable": true,
+      "reference": null
+    },
+    {
+      "ticker": "RKLB",
+      "chain": "56",
+      "a": {
+        "platform": "ondo",
+        "address": "0xb4d695569236273745b4cd54b539b1b9cc1513af",
+        "price_per_share": "68.17",
+        "price_age_s": 0,
+        "liquidity_usd": "0"
+      },
+      "b": {
+        "platform": "bstock",
+        "address": "0xc8da12cbcce7c45180692a6420b0076e03a5179a",
+        "price_per_share": "68.35",
+        "price_age_s": 0,
+        "liquidity_usd": "0"
+      },
+      "gross_spread_pct": "0.2640",
+      "tradable": true,
+      "reference": null
+    },
+    {
+      "ticker": "MRVL",
+      "chain": "56",
+      "a": {
+        "platform": "ondo",
+        "address": "0x1501ec83ffef405b4331cc4f73277a40fb0c627d",
+        "price_per_share": "276.07",
+        "price_age_s": 0,
+        "liquidity_usd": "0"
+      },
+      "b": {
+        "platform": "bstock",
+        "address": "0x16cd4fe7e8880ecc3ba222795229e20489fc2c76",
+        "price_per_share": "275.36",
+        "price_age_s": 0,
+        "liquidity_usd": "0"
+      },
+      "gross_spread_pct": "0.2565",
+      "tradable": true,
+      "reference": null
+    },
+    {
+      "ticker": "META",
+      "chain": "56",
+      "a": {
+        "platform": "ondo",
+        "address": "0xd7df5863a3e742f0c767768cdfcb63f09e0422f6",
+        "price_per_share": "721.19",
+        "price_age_s": 0,
+        "liquidity_usd": "0"
+      },
+      "b": {
+        "platform": "bstock",
+        "address": "0x7425889fe94f9d693e8daefe88bcced6acfef4c0",
+        "price_per_share": "719.41",
+        "price_age_s": 0,
+        "liquidity_usd": "0"
+      },
+      "gross_spread_pct": "0.2471",
+      "tradable": true,
+      "reference": null
+    },
+    {
+      "ticker": "PLTR",
+      "chain": "56",
+      "a": {
+        "platform": "ondo",
+        "address": "0x9351abd19f42101dd36025e495b98e910b255d78",
+        "price_per_share": "208.76",
+        "price_age_s": 0,
+        "liquidity_usd": "0"
+      },
+      "b": {
+        "platform": "bstock",
+        "address": "0x0ca5d51d0277bd006fd9607d3e560785ebad8222",
+        "price_per_share": "209.25",
+        "price_age_s": 0,
+        "liquidity_usd": "0"
+      },
+      "gross_spread_pct": "0.2347",
+      "tradable": true,
+      "reference": null
+    },
+    {
+      "ticker": "GLW",
+      "chain": "56",
+      "a": {
+        "platform": "ondo",
+        "address": "0x25a4dbae9a0cd8c75656d6b50ffdf4900cc20d8f",
+        "price_per_share": "155.96",
+        "price_age_s": 0,
+        "liquidity_usd": "0"
+      },
+      "b": {
+        "platform": "bstock",
+        "address": "0x740e075cbbea22a082b9d6679e65e82767875b6a",
+        "price_per_share": "155.61",
+        "price_age_s": 0,
+        "liquidity_usd": "0"
+      },
+      "gross_spread_pct": "0.2272",
+      "tradable": true,
+      "reference": null
+    },
+    {
+      "ticker": "NBIS",
+      "chain": "56",
+      "a": {
+        "platform": "ondo",
+        "address": "0xee268780473e7a0e47bac41547c6e01512555a16",
+        "price_per_share": "221.31",
+        "price_age_s": 0,
+        "liquidity_usd": "0"
+      },
+      "b": {
+        "platform": "bstock",
+        "address": "0xe256bc2a4f5297f8ba6f043f180a46300ecbcbb1",
+        "price_per_share": "221.74",
+        "price_age_s": 0,
+        "liquidity_usd": "0"
+      },
+      "gross_spread_pct": "0.1966",
+      "tradable": true,
+      "reference": null
+    },
+    {
+      "ticker": "MU",
+      "chain": "56",
+      "a": {
+        "platform": "ondo",
+        "address": "0x8b6acf6041a81567f012ff6a4c6d96d5818d74bf",
+        "price_per_share": "1035.39",
+        "price_age_s": 0,
+        "liquidity_usd": "0"
+      },
+      "b": {
+        "platform": "bstock",
+        "address": "0xcdf2f3e0fa43c47a6662a91c9e4a7c5f69762699",
+        "price_per_share": "1033.76",
+        "price_age_s": 0,
+        "liquidity_usd": "0"
+      },
+      "gross_spread_pct": "0.1581",
+      "tradable": true,
+      "reference": null
+    },
+    {
+      "ticker": "DRAM",
+      "chain": "56",
+      "a": {
+        "platform": "ondo",
+        "address": "0x087b5761b161429013d41ea54cd2fb6022a21564",
+        "price_per_share": "57.63",
+        "price_age_s": 0,
+        "liquidity_usd": "0"
+      },
+      "b": {
+        "platform": "bstock",
+        "address": "0x93862d63fd9fd488b1328e9b47717d75e994a84b",
+        "price_per_share": "57.56",
+        "price_age_s": 0,
+        "liquidity_usd": "0"
+      },
+      "gross_spread_pct": "0.1129",
+      "tradable": true,
+      "reference": null
+    },
+    {
+      "ticker": "SPCX",
+      "chain": "56",
+      "a": {
+        "platform": "ondo",
+        "address": "0xd0a58bc9d88d3ff48c0294cb7e45937d0e41a928",
+        "price_per_share": "164.00",
+        "price_age_s": 0,
+        "liquidity_usd": "0"
+      },
+      "b": {
+        "platform": "bstock",
+        "address": "0xbe9d156892e55e7154bcd3cb0fea677f9d3103e1",
+        "price_per_share": "163.87",
+        "price_age_s": 0,
+        "liquidity_usd": "0"
+      },
+      "gross_spread_pct": "0.0763",
+      "tradable": true,
+      "reference": null
+    },
+    {
+      "ticker": "CRCL",
+      "chain": "56",
+      "a": {
+        "platform": "ondo",
+        "address": "0x992879cd8ce0c312d98648875b5a8d6d042cbf34",
+        "price_per_share": "85.61",
+        "price_age_s": 0,
+        "liquidity_usd": "0"
+      },
+      "b": {
+        "platform": "bstock",
+        "address": "0x80f3d493ebce97e343c53d29a137942416b4ffc0",
+        "price_per_share": "85.55",
+        "price_age_s": 0,
+        "liquidity_usd": "0"
+      },
+      "gross_spread_pct": "0.0760",
+      "tradable": true,
+      "reference": null
+    },
+    {
+      "ticker": "MSTR",
+      "chain": "56",
+      "a": {
+        "platform": "ondo",
+        "address": "0x7313ea16493b2f55054df0131a3a14b043ec8992",
+        "price_per_share": "155.53",
+        "price_age_s": 0,
+        "liquidity_usd": "0"
+      },
+      "b": {
+        "platform": "bstock",
+        "address": "0xe87afb3076aeb0f9b14e368de8145ae6a2826a14",
+        "price_per_share": "155.42",
+        "price_age_s": 0,
+        "liquidity_usd": "0"
+      },
+      "gross_spread_pct": "0.0740",
+      "tradable": true,
+      "reference": null
+    },
+    {
+      "ticker": "INTC",
+      "chain": "56",
+      "a": {
+        "platform": "ondo",
+        "address": "0xa528caaa2f96090e379d43f90834c75df54d6e74",
+        "price_per_share": "104.95",
+        "price_age_s": 0,
+        "liquidity_usd": "0"
+      },
+      "b": {
+        "platform": "bstock",
+        "address": "0xe614e2fc6c787035ff51f452e8e826bfd32d5283",
+        "price_per_share": "104.88",
+        "price_age_s": 0,
+        "liquidity_usd": "0"
+      },
+      "gross_spread_pct": "0.0715",
+      "tradable": true,
+      "reference": null
+    },
+    {
+      "ticker": "SOXL",
+      "chain": "56",
+      "a": {
+        "platform": "ondo",
+        "address": "0xb943c8a0d77b656daf5244da060d647fd9152289",
+        "price_per_share": "139.54",
+        "price_age_s": 0,
+        "liquidity_usd": "0"
+      },
+      "b": {
+        "platform": "bstock",
+        "address": "0xd97d097a89113fa59b76c572e5b2eb647e8eefaf",
+        "price_per_share": "139.45",
+        "price_age_s": 0,
+        "liquidity_usd": "0"
+      },
+      "gross_spread_pct": "0.0666",
+      "tradable": true,
+      "reference": null
+    },
+    {
+      "ticker": "AMD",
+      "chain": "56",
+      "a": {
+        "platform": "ondo",
+        "address": "0x9f16e46c73b43bdb70861247d537bee4ea18f639",
+        "price_per_share": "609.14",
+        "price_age_s": 0,
+        "liquidity_usd": "0"
+      },
+      "b": {
+        "platform": "bstock",
+        "address": "0x75fd4cf6f8392e41e70391d60c90c0d5211603a1",
+        "price_per_share": "608.74",
+        "price_age_s": 0,
+        "liquidity_usd": "0"
+      },
+      "gross_spread_pct": "0.0665",
+      "tradable": true,
+      "reference": null
+    },
+    {
+      "ticker": "TSLA",
+      "chain": "56",
+      "a": {
+        "platform": "ondo",
+        "address": "0x2494b603319d4d9f9715c9f4496d9e0364b59d93",
+        "price_per_share": "382.88",
+        "price_age_s": 0,
+        "liquidity_usd": "0"
+      },
+      "b": {
+        "platform": "bstock",
+        "address": "0x5b1910eaad6450e50f816082aa078c41f10c292f",
+        "price_per_share": "382.68",
+        "price_age_s": 0,
+        "liquidity_usd": "0"
+      },
+      "gross_spread_pct": "0.0510",
+      "tradable": true,
+      "reference": null
+    },
+    {
+      "ticker": "SNDK",
+      "chain": "56",
+      "a": {
+        "platform": "ondo",
+        "address": "0x4fd67cb8cfedc718bac984b5936abe3330d0a2a4",
+        "price_per_share": "1591.07",
+        "price_age_s": 0,
+        "liquidity_usd": "0"
+      },
+      "b": {
+        "platform": "bstock",
+        "address": "0x3ee4df61bd4f867e349beae8bfe07bc31b4850fb",
+        "price_per_share": "1590.32",
+        "price_age_s": 0,
+        "liquidity_usd": "0"
+      },
+      "gross_spread_pct": "0.0468",
+      "tradable": true,
+      "reference": null
+    },
+    {
+      "ticker": "COIN",
+      "chain": "56",
+      "a": {
+        "platform": "ondo",
+        "address": "0xf8589b526fdd65f7f301c605a6e04f0f1b4b3620",
+        "price_per_share": "180.89",
+        "price_age_s": 0,
+        "liquidity_usd": "0"
+      },
+      "b": {
+        "platform": "bstock",
+        "address": "0x585bde7c54abb5ccd7791f923d6c2187635f3952",
+        "price_per_share": "180.82",
+        "price_age_s": 0,
+        "liquidity_usd": "0"
+      },
+      "gross_spread_pct": "0.0387",
+      "tradable": true,
+      "reference": null
+    },
+    {
+      "ticker": "ARM",
+      "chain": "56",
+      "a": {
+        "platform": "ondo",
+        "address": "0x527c6436e1eaa4f2065cde4090f798cb5d031dd6",
+        "price_per_share": "267.24",
+        "price_age_s": 0,
+        "liquidity_usd": "0"
+      },
+      "b": {
+        "platform": "bstock",
+        "address": "0xd42a79ebb7f527f40faecd196ffb47ad5e8d6f8c",
+        "price_per_share": "267.16",
+        "price_age_s": 0,
+        "liquidity_usd": "0"
+      },
+      "gross_spread_pct": "0.0281",
+      "tradable": true,
+      "reference": null
+    },
+    {
+      "ticker": "SKHY",
+      "chain": "56",
+      "a": {
+        "platform": "ondo",
+        "address": "0x4268f2bfb23a7496504aa5ed1ee325248586299f",
+        "price_per_share": "170.56",
+        "price_age_s": 0,
+        "liquidity_usd": "0"
+      },
+      "b": {
+        "platform": "bstock",
+        "address": "0xca750ef65f295bbecd685abf54e82caf297bdb61",
+        "price_per_share": "170.56",
+        "price_age_s": 0,
+        "liquidity_usd": "0"
+      },
+      "gross_spread_pct": "0.0029",
+      "tradable": true,
+      "reference": null
     }
   ]
 }
-

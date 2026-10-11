@@ -1,75 +1,63 @@
 import {
-  Activity,
-  ClipboardCheck,
-  Cpu,
+  Bell,
+  CalendarClock,
+  LayoutDashboard,
   Link2,
-  PieChart,
-  RefreshCw,
-  ShieldCheck,
-  WalletCards
+  MessageCircle,
+  Newspaper,
+  Power,
+  Puzzle,
+  ScrollText,
+  SlidersHorizontal,
+  Wallet
 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { NavLink, Outlet } from "react-router-dom";
-import { getJson, shortAddress, type Health, type Quote, type WalletReadiness } from "../lib/api";
+import { getJson, shortAddress, type MarketOverview, type PivotSettings } from "../lib/api";
 
 const navItems = [
-  { to: "/", label: "Monitor", icon: Activity, end: true },
-  { to: "/wallet", label: "Wallet Skills", icon: WalletCards, end: false },
-  { to: "/agent", label: "Agent Studio", icon: Cpu, end: false },
-  { to: "/baskets", label: "Baskets", icon: PieChart, end: false },
-  { to: "/risk", label: "Risk Rules", icon: ShieldCheck, end: false },
-  { to: "/judge", label: "Judge Mode", icon: ClipboardCheck, end: false }
+  { to: "/", label: "Dashboard", icon: LayoutDashboard, end: true },
+  { to: "/agent", label: "Agent", icon: MessageCircle, end: false },
+  { to: "/portfolio", label: "Portfolio", icon: Wallet, end: false },
+  { to: "/alerts", label: "Alerts", icon: Bell, end: false },
+  { to: "/plans", label: "Plans", icon: CalendarClock, end: false },
+  { to: "/opportunities", label: "Opportunities", icon: Newspaper, end: false, experimental: true },
+  { to: "/settings", label: "Settings", icon: SlidersHorizontal, end: false },
+  { to: "/activity", label: "Activity", icon: ScrollText, end: false },
+  { to: "/skills", label: "Skills", icon: Puzzle, end: false }
 ];
 
 export function Layout() {
-  const [health, setHealth] = useState<Health | null>(null);
-  const [quotes, setQuotes] = useState<Quote[]>([]);
-  const [marketMode, setMarketMode] = useState("loading");
-  const [cacheStatus, setCacheStatus] = useState("loading");
+  const [settings, setSettings] = useState<PivotSettings | null>(null);
+  const [overview, setOverview] = useState<MarketOverview | null>(null);
   const [loading, setLoading] = useState(true);
   const [walletAddress, setWalletAddress] = useState<string | null>(null);
-  const [walletReadiness, setWalletReadiness] = useState<WalletReadiness | null>(null);
-  const [risk, setRisk] = useState<"balanced" | "aggressive">("balanced");
-  const [platform, setPlatform] = useState<"bstock" | "ondo" | "all">("bstock");
-  const [tab, setTab] = useState(9);
-  const [maxTradeUsd, setMaxTradeUsd] = useState(10);
 
   async function refresh() {
     setLoading(true);
-    // Sector/tab is a bStocks-only categorization (Binance's internal catalog tabs); other
-    // platforms are fetched unfiltered by sector.
-    const marketQuery = platform === "bstock" ? `?platform=${platform}&tab=${tab}` : `?platform=${platform}`;
-    const [healthData, marketData] = await Promise.all([
-      getJson<Health>("/api/health"),
-      getJson<{ mode: string; cacheStatus?: string; quotes: Quote[] }>(`/api/market${marketQuery}`)
+    const [settingsData, overviewData] = await Promise.all([
+      getJson<{ settings: PivotSettings }>("/api/settings").catch(() => null),
+      getJson<MarketOverview>("/api/market/overview").catch(() => null)
     ]);
-    setHealth(healthData);
-    setQuotes(marketData.quotes);
-    setMarketMode(marketData.mode);
-    setCacheStatus(marketData.cacheStatus ?? "live");
+    setSettings(settingsData?.settings ?? null);
+    setOverview(overviewData);
     setLoading(false);
   }
 
-  async function refreshWalletReadiness() {
-    if (!walletAddress) return;
-    const data = await getJson<WalletReadiness>(`/api/wallet/readiness/${walletAddress}`);
-    setWalletReadiness(data);
-  }
-
-  function applyAccount(account: string | null) {
-    setWalletAddress(account);
-    if (account) {
-      getJson<WalletReadiness>(`/api/wallet/readiness/${account}`).then(setWalletReadiness).catch(() => undefined);
-    } else {
-      setWalletReadiness(null);
-    }
+  async function toggleAgent() {
+    const next = !settings?.agent_enabled;
+    const data = await getJson<{ settings: PivotSettings }>("/api/settings/kill", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ enabled: next })
+    });
+    setSettings(data.settings);
   }
 
   async function connectWallet() {
     if (!window.ethereum) return;
     const accounts = await window.ethereum.request<string[]>({ method: "eth_requestAccounts" });
-    applyAccount(accounts[0] ?? null);
-
+    setWalletAddress(accounts?.[0] ?? null);
     try {
       await window.ethereum.request({ method: "wallet_switchEthereumChain", params: [{ chainId: "0x38" }] });
     } catch {
@@ -90,21 +78,21 @@ export function Layout() {
 
   useEffect(() => {
     refresh();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [platform, tab]);
+    const interval = setInterval(refresh, 30000);
+    return () => clearInterval(interval);
+  }, []);
 
-  // Pick up an already-authorized wallet on load, and react live to account switches or
-  // disconnects made from the wallet extension itself (not just the Connect button).
+  // Pick up an already-authorized wallet, and follow account switches made in the extension.
   useEffect(() => {
     if (!window.ethereum) return;
     window.ethereum
       .request<string[]>({ method: "eth_accounts" })
-      .then((accounts) => applyAccount(accounts?.[0] ?? null))
+      .then((accounts) => setWalletAddress(accounts?.[0] ?? null))
       .catch(() => undefined);
 
     function handleAccountsChanged(...args: unknown[]) {
       const accounts = (args[0] as string[] | undefined) ?? [];
-      applyAccount(accounts[0] ?? null);
+      setWalletAddress(accounts[0] ?? null);
     }
 
     window.ethereum.on?.("accountsChanged", handleAccountsChanged);
@@ -113,44 +101,16 @@ export function Layout() {
       window.ethereum?.removeListener?.("accountsChanged", handleAccountsChanged);
       window.ethereum?.removeListener?.("disconnect", handleAccountsChanged);
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const bestSpread = quotes.length
-    ? [...quotes].sort((a, b) => Math.abs(b.spreadBps) - Math.abs(a.spreadBps))[0]
-    : null;
-
-  const shellContext = {
-    health,
-    quotes,
-    marketMode,
-    cacheStatus,
-    loading,
-    refresh,
-    bestSpread,
-    walletAddress,
-    walletReadiness,
-    connectWallet,
-    refreshWalletReadiness,
-    risk,
-    setRisk,
-    platform,
-    setPlatform,
-    tab,
-    setTab,
-    maxTradeUsd,
-    setMaxTradeUsd
-  };
+  const shellContext = { settings, overview, loading, refresh, walletAddress, connectWallet };
 
   return (
     <main className="shell">
       <aside className="sidebar">
         <div className="brand">
           <div className="brandMark">CS</div>
-          <div>
-            <strong>CircuitStock</strong>
-            <span>Agentic tokenized stocks</span>
-          </div>
+          <strong>CircuitStock</strong>
         </div>
         <nav>
           {navItems.map((item) => {
@@ -159,12 +119,13 @@ export function Layout() {
               <NavLink key={item.to} to={item.to} end={item.end} className={({ isActive }) => (isActive ? "active" : "")}>
                 <Icon size={18} />
                 {item.label}
+                {"experimental" in item && item.experimental && <span className="expTag">exp</span>}
               </NavLink>
             );
           })}
         </nav>
         <div className="sidebarFoot">
-          <span>BNB Hack: Tokenized Stocks Edition</span>
+          <span>Informational &amp; experimental - not financial advice</span>
         </div>
       </aside>
 
@@ -172,24 +133,43 @@ export function Layout() {
         <header className="topbar">
           <div className="metrics">
             <div>
-              <span>API key</span>
-              <strong>{health?.apiConfigured ? health.apiKeyStatus : "Missing"}</strong>
+              <span>Agent</span>
+              <strong className={settings?.agent_enabled ? "statusOn" : "statusOff"}>
+                {settings === null ? "..." : settings.agent_enabled ? "Active" : "Disabled"}
+              </strong>
             </div>
             <div>
-              <span>Market data</span>
-              <strong>{marketMode}</strong>
+              <span>Market</span>
+              <strong>{overview ? (overview.market.open ? "Open" : "Closed") : "..."}</strong>
             </div>
             <div>
-              <span>Largest spread</span>
-              <strong>{bestSpread ? `${Math.abs(bestSpread.spreadBps)} bps` : "--"}</strong>
+              <span>Mode</span>
+              <strong>{settings?.preset ?? "..."}</strong>
+            </div>
+            <div>
+              <span>Data</span>
+              <strong className="replayBadge" title={overview?.capturedAt ? `captured ${new Date(overview.capturedAt).toLocaleString()}` : undefined}>
+                {overview?.replay ? "REPLAY" : "LIVE"}
+              </strong>
             </div>
           </div>
           <div className="topbarActions">
+            <span className="simulatedPill">Simulated only</span>
+            {/* T4: the kill switch must be reachable from every page, not just Settings. */}
+            <button
+              className={settings?.agent_enabled ? "killButton small" : "walletButton"}
+              onClick={toggleAgent}
+              disabled={settings === null}
+              title={settings?.agent_enabled ? "Stop all agent actions immediately" : "Allow the agent to produce suggestions again"}
+            >
+              <Power size={15} />
+              {settings?.agent_enabled ? "Disable agent" : "Enable agent"}
+            </button>
             <button className={walletAddress ? "walletButton connected" : "walletButton"} onClick={connectWallet}>
               {walletAddress ? (
                 <>
                   <span className="statusDot" />
-                  Connected <small>{shortAddress(walletAddress)}</small>
+                  {shortAddress(walletAddress)}
                 </>
               ) : (
                 <>
@@ -197,9 +177,6 @@ export function Layout() {
                   Connect wallet
                 </>
               )}
-            </button>
-            <button className="iconButton" onClick={refresh} title="Refresh data" aria-label="Refresh data">
-              <RefreshCw size={18} className={loading ? "spin" : ""} />
             </button>
           </div>
         </header>

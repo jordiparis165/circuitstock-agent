@@ -1,9 +1,10 @@
+process.env.AGENT_SNAPSHOT_PATH = "fixtures/snapshot.test.json";
 import assert from "node:assert/strict";
 import os from "node:os";
 import path from "node:path";
 import test from "node:test";
 import { createAlert, listAlerts, testAlert } from "./agent/alerts";
-import { handleAgentChat } from "./agent/chatTools";
+import { handleAgentChat, runChatTool } from "./agent/chatTools";
 import { createPlan, runPlan } from "./agent/plans";
 import { readSettings, setAgentEnabled, updateSettings } from "./agent/settings";
 
@@ -22,13 +23,35 @@ test("global agent kill switch blocks chat actions", async () => {
   setAgentEnabled(true, "test");
 });
 
-test("chat propose buy returns a structured simulated card with checks", async () => {
+test("quick action propose_buy returns a structured simulated card without any LLM", async () => {
   updateSettings({ agent_enabled: true, min_order_usd: 20, premium_warn_pct: 2 }, "test");
-  const response = await handleAgentChat("buy 50 USD of AAPL");
+  const response = await runChatTool("propose_buy", { ticker: "AAPL", amount_usd: "50" });
   assert.equal(response.card.type, "simulated_buy");
   assert.equal(response.card.simulated, true);
   assert.equal(response.card.checks.length > 0, true);
   assert.equal(response.disclaimer.includes("not financial advice"), true);
+});
+
+test("free-text chat falls back to deterministic routing when the model is unavailable", async () => {
+  const previous = process.env.OPENAI_API_KEY;
+  delete process.env.OPENAI_API_KEY;
+  updateSettings({ agent_enabled: true }, "test");
+  const response = await handleAgentChat("buy 50 USD of AAPL");
+  assert.equal(response.llm?.available, false);
+  assert.equal(response.llm?.routedTo, "propose_buy");
+  assert.equal(response.card.type, "simulated_buy");
+  assert.equal(response.card.simulated, true);
+  assert.equal(response.card.ticker, "AAPL");
+  if (previous !== undefined) process.env.OPENAI_API_KEY = previous;
+});
+
+test("the agent never writes settings when it only proposes a preset", async () => {
+  updateSettings({ preset: "balanced", agent_enabled: true }, "test");
+  const before = readSettings();
+  const response = await runChatTool("propose_setting_change", { preset: "prudent" });
+  assert.equal(response.card.type, "settings_change");
+  assert.equal(readSettings().preset, before.preset);
+  assert.equal(readSettings().max_order_usd, before.max_order_usd);
 });
 
 test("settings persist and expose user source of truth", () => {

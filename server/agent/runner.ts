@@ -3,7 +3,7 @@ import { loadAgentConfig } from "./config";
 import { compareSimulationToIntent, PaperExecutor } from "./execution";
 import { validateIntent } from "./guardrails";
 import { appendDecision, findDecisionByRequestId } from "./ledger";
-import { MockLlmClient } from "./llmClient";
+import { defaultLlmClient } from "./llmClient";
 import { marketAction } from "./marketState";
 import { assertIntent, assertSnapshot } from "./schema";
 import { findRotationOpportunity } from "./strategy";
@@ -23,7 +23,7 @@ export async function runAgentCycle(input: {
   if (existing) return existing;
   const snapshot = assertSnapshot(input.snapshot);
   const config = loadAgentConfig();
-  const llm = input.llm ?? new MockLlmClient();
+  const llm = input.llm ?? defaultLlmClient();
   const executor = input.executor ?? new PaperExecutor();
   const action = marketAction(snapshot, undefined, config);
   const opportunity = action === "rotate" ? findRotationOpportunity(snapshot, config) : undefined;

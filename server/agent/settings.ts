@@ -77,6 +77,12 @@ const presetValues: Record<AgentPreset, Partial<PivotSettings>> = {
   }
 };
 
+/** Pure preview of a preset applied to the current settings. Writes nothing - the agent may
+ *  propose a change, but only the user can commit one. */
+export function previewPreset(current: PivotSettings, preset: AgentPreset): PivotSettings {
+  return { ...current, ...presetValues[preset], preset };
+}
+
 function settingsPath(): string {
   return path.resolve(process.cwd(), pickEnv(["AGENT_SETTINGS_PATH"]) ?? "data/agent-settings.json");
 }

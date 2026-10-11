@@ -14,7 +14,8 @@ const basePolicy: AutoPolicy = {
   maxSlippageBps: 50,
   cooldownSec: 900,
   allowedSymbols: ["IBMB"],
-  walletAddress: "0x000000000000000000000000000000000000dEaD"
+  walletAddress: "0x000000000000000000000000000000000000dEaD",
+  maxRoundTripCostPct: 1
 };
 
 const baseCandidate: Candidate = {
@@ -23,7 +24,8 @@ const baseCandidate: Candidate = {
   amountUsd: 10,
   spreadBps: 50,
   score: 90,
-  liquidityUsd: 1_000_000
+  liquidityUsd: 1_000_000,
+  roundTripCostPct: 0.1
 };
 
 function state(overrides: Partial<WatcherState> = {}): WatcherState {
@@ -57,4 +59,21 @@ test("blocks while cooldown is active", () => {
     new Date("2026-09-22T12:00:00Z")
   );
   assert.equal(violations.some((item) => item.includes("cooldown active")), true);
+});
+
+test("blocks a route whose measured round-trip cost exceeds the policy max", () => {
+  const violations = evaluate({ ...baseCandidate, roundTripCostPct: 11.227 }, basePolicy, state());
+  assert.equal(violations.some((item) => item.includes("measured round-trip cost 11.227% > max 1%")), true);
+});
+
+test("allows a route right at the threshold, blocks just over it", () => {
+  assert.equal(evaluate({ ...baseCandidate, roundTripCostPct: 1 }, basePolicy, state()).length, 0);
+  const violations = evaluate({ ...baseCandidate, roundTripCostPct: 1.001 }, basePolicy, state());
+  assert.equal(violations.some((item) => item.includes("round-trip cost")), true);
+});
+
+test("fails closed when round-trip cost was never measured (undefined is not a pass)", () => {
+  const { roundTripCostPct: _omit, ...candidateWithoutCost } = baseCandidate;
+  const violations = evaluate(candidateWithoutCost as Candidate, basePolicy, state());
+  assert.equal(violations.some((item) => item.includes("round-trip cost not measured")), true);
 });

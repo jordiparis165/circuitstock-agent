@@ -26,5 +26,14 @@ export type AgentChatResponse = {
   card: AgentCard;
   tools: string[];
   disclaimer: string;
+  /** How the answer was produced, so the UI can be honest about the model's involvement. */
+  llm?: {
+    available: boolean;
+    model?: string;
+    routedTo?: string;
+    /** True when the model rephrased the deterministic reply. The figures are never its own. */
+    explained?: boolean;
+    reason?: string;
+  };
 };
 

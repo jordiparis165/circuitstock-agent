@@ -15,7 +15,7 @@ CircuitStock is an AI-agent cockpit for tokenized stocks on BSC. It scans bStock
 
 ## Pasteable Technical Description
 
-The project uses Binance Web3 RWA, Market, Trading, Transaction and Wallet APIs from a server-side signed client. The frontend exposes Monitor, Agent Studio, Wallet Skills, Risk Rules and Judge Mode. The agent can parse prompts, propose simulated buys, draft alerts/plans, check premiums, expose compact Wallet Skill payloads, and run a dry-run watcher with guardrails. `/api/judge/smoke` and `/api/evidence` provide quick verification for judges.
+The project uses Binance Web3 RWA, Market, Trading, Transaction and Wallet APIs from a server-side signed client. The frontend exposes Dashboard, Agent, Portfolio, Alerts, Plans, Settings, Activity, Skills and Opportunities. The agent can parse prompts, propose simulated buys, draft alerts/plans, check premiums, expose compact Wallet Skill payloads, and run a dry-run watcher with guardrails. `/api/judge/smoke` and `/api/evidence` provide quick verification for judges.
 
 ## Pasteable Limitations
 

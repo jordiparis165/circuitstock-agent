@@ -22,7 +22,7 @@ The agent layer adds prompts, simulated buy cards, premium checks, alert drafts,
 - Gas price, gas limit and simulation calls.
 - Wallet balance/portfolio checks where Binance endpoints are available.
 - BSC RPC readiness check.
-- Agent Studio settings, alerts and plans persisted under `data/`.
+- Agent settings, alerts and plans persisted under `data/`.
 - Wallet Skills read-only checks and `/api/skills/log`.
 - Local tests for policy, spreads, reference selection and Part B agent behavior.
 

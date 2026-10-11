@@ -196,6 +196,59 @@ export async function getBinanceQuote(request: QuoteRequest): Promise<BinanceQuo
   }
 }
 
+export type RoundTripCostResult =
+  | { ok: true; costPct: number; buyVendor?: string; sellVendor?: string; receivedTokenAmount: string; usdtOut: number }
+  | { ok: false; reason: string };
+
+/**
+ * Measures the REAL executable round-trip cost of a route: quote buying `tokenAddress` with
+ * `quoteAmount` of `quoteTokenAddress`, then quote selling back EXACTLY the amount received - no
+ * price snapshot, no division, no reference price anywhere in the calculation. This is
+ * deliberately NOT based on `priceImpactPercent`: that field was found to dramatically understate
+ * real cost for at least one route (SPYon via Pancakeswap V3 - see docs/cross-issuer-spreads.md,
+ * reported impact ~0.1% against a measured round-trip cost that ranged from 11% to 53% across
+ * separate sessions days apart). Only the quote's own output/input amounts are trusted.
+ */
+export async function measureRoundTripCost(
+  tokenAddress: string,
+  quoteTokenAddress: string,
+  quoteAmount: string,
+  walletAddress?: string
+): Promise<RoundTripCostResult> {
+  const buy = await getBinanceQuote({ fromTokenAddress: quoteTokenAddress, toTokenAddress: tokenAddress, amount: quoteAmount, walletAddress });
+  const buyRoute = buy.ok ? (buy.data as { data?: Array<Record<string, unknown>> })?.data?.[0] : null;
+  if (!buyRoute?.toTokenAmount) {
+    return { ok: false, reason: buy.ok ? "no buy route" : buy.error ?? "buy quote failed" };
+  }
+
+  const sell = await getBinanceQuote({
+    fromTokenAddress: tokenAddress,
+    toTokenAddress: quoteTokenAddress,
+    amount: String(buyRoute.toTokenAmount),
+    walletAddress
+  });
+  const sellRoute = sell.ok ? (sell.data as { data?: Array<Record<string, unknown>> })?.data?.[0] : null;
+  if (!sellRoute?.toTokenAmount) {
+    return { ok: false, reason: sell.ok ? "no sell route" : sell.error ?? "sell quote failed" };
+  }
+
+  const amountInNum = Number(quoteAmount);
+  const amountOutNum = Number(sellRoute.toTokenAmount);
+  if (!Number.isFinite(amountInNum) || amountInNum <= 0 || !Number.isFinite(amountOutNum)) {
+    return { ok: false, reason: "non-finite amounts returned by quote" };
+  }
+  const costPct = ((amountInNum - amountOutNum) / amountInNum) * 100;
+
+  return {
+    ok: true,
+    costPct,
+    buyVendor: typeof buyRoute.vendorName === "string" ? buyRoute.vendorName : undefined,
+    sellVendor: typeof sellRoute.vendorName === "string" ? sellRoute.vendorName : undefined,
+    receivedTokenAmount: String(buyRoute.toTokenAmount),
+    usdtOut: amountOutNum / 1e18
+  };
+}
+
 export async function getBinanceSwap(request: SwapRequest): Promise<BinanceCallResult> {
   return toResult(config.swapPath, () =>
     callBinanceGet(config.swapPath, {
@@ -266,13 +319,19 @@ export async function getPortfolioOverview(walletAddress: string): Promise<Binan
   );
 }
 
-export async function getMarketCandles(tokenAddress: string): Promise<BinanceCallResult> {
+export async function getMarketCandles(tokenAddress: string, bar = "1h", limit = 24): Promise<BinanceCallResult> {
+  // Param is `bar`, not `interval` - the doc's own param name (binance-web3-context.md §4.1).
+  // `interval` is silently dropped by the API, which then defaults to bar=1m: this was quietly
+  // returning the last 24 one-minute candles (often spanning far less than an hour of real trades
+  // for a thin RWA token) instead of 24 hours, ever since this function was written. Confirmed
+  // empirically: before this fix, 24 points for IBMB spanned ~5h of sparse 1-minute buckets, with
+  // ~1min gaps between populated candles - not a 24h window by any reading.
   return toResult(config.marketCandlesPath, () =>
     callBinanceGet(config.marketCandlesPath, {
       binanceChainId: 56,
       tokenContractAddress: tokenAddress,
-      interval: "1h",
-      limit: 24
+      bar,
+      limit
     })
   );
 }

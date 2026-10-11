@@ -1,3 +1,4 @@
+process.env.AGENT_SNAPSHOT_PATH = "fixtures/snapshot.test.json";
 import assert from "node:assert/strict";
 import test from "node:test";
 import { loadSampleSnapshot } from "./agent/fixtures";

@@ -4,84 +4,81 @@ Target length: 3:30 to 4:00.
 
 ## 0:00 - 0:25: Hook
 
-"CircuitStock is an AI agent cockpit for tokenized stocks on BSC. It scans bStocks and Ondo spreads, explains what changed, prepares execution evidence, and stops before broadcast so the user stays in control."
+"CircuitStock is an AI agent cockpit for tokenized stocks on BSC. It compares bStocks and Ondo issuers, checks the reference layer, explains the result, and keeps execution simulated so the user stays in control."
 
 Open: `https://circuitstock-agent.vercel.app`
 
-## 0:25 - 0:55: Monitor
-
-Show the dashboard:
-
-- platform filters: bStocks/Ondo
-- live/cached market status
-- spread table
-- API evidence
-
-Say: "The scanner is powered by Binance Web3 RWA and Trading APIs. When production APIs rate-limit or cache, the UI labels that state instead of pretending."
-
-## 0:55 - 1:35: Execution Evidence
-
-Click a recommendation or use the first-stock flow.
+## 0:25 - 0:55: Dashboard
 
 Show:
 
-- quote ID
-- approval target
-- swap calldata
-- gas/simulation result
-- `No broadcast`
+- issuer spread heatmap
+- replay/live status
+- premium/reference state
+- visible checks
 
-Say: "This is not an auto-trader. CircuitStock builds and simulates the transaction, then the user wallet decides whether to sign. If simulation fails, that becomes the product message."
+Say: "The important product choice is honesty: if the independent reference or a skill is unavailable, the UI labels it instead of inventing a signal."
 
-## 1:35 - 2:35: Agent Studio
+## 0:55 - 1:45: Agent
 
-Open **Agent Studio**.
+Open **Agent**.
 
 Prompt 1:
 
 ```text
-buy 50 USD of AAPL
+buy 50 USD of MSFT
 ```
 
-Show the simulated card, checks and `would_change_if`.
+Show the simulated card, issuer choice, checks, no signature and no broadcast.
 
 Prompt 2:
 
 ```text
-préviens moi quand NVDA est sous la prime 0.2
+previens moi quand NVDA est sous la prime 0.2
 ```
 
-Show alert draft.
+Show the alert draft.
 
-Say: "The agent can advise, draft alerts and propose plans, but execution stays simulated unless the user confirms. OpenAI is optional; the demo has deterministic fallback so it still runs without paid LLM credit."
+Say: "The model, when configured, only routes the request and words the response. The numbers and checks come from deterministic code. Without an OpenAI key, common prompts still route through deterministic fallback."
 
-## 2:35 - 3:15: Risk Rules
+## 1:45 - 2:35: Settings And Safety
 
-Show settings/guardrails:
-
-- kill switch
-- max trade
-- max daily budget
-- allowed symbols
-- slippage
-- cooldown
-- dry-run watcher
-
-Say: "This is the winning safety angle: an agent with risk rules, not a black-box button."
-
-## 3:15 - 3:45: Judge Mode
-
-Open **Judge Mode** and run smoke checks.
+Open **Settings**.
 
 Show:
 
-- `/api/health`
-- `/api/evidence`
-- `/api/judge/smoke`
-- Wallet Skills availability/log
+- kill switch
+- max order
+- premium threshold
+- allowed issuers
+- confirmation mode
+- change log
 
-Say: "The judge can test the API surface without needing our private keys."
+Say: "This is the agent safety layer. The agent may propose a settings change, but settings remain the source of truth and require user confirmation."
+
+## 2:35 - 3:15: Portfolio, Alerts, Plans
+
+Open **Portfolio**, **Alerts** and **Plans** quickly.
+
+Say: "Every portfolio rotation, alert and recurring plan is simulated in this build. That makes the agent useful for judging without pretending we have live autonomous settlement."
+
+## 3:15 - 3:45: Skills And API Evidence
+
+Open **Skills**.
+
+Show:
+
+- Wallet Skills checks
+- call log
+- audit unknown/pass/fail behavior
+
+Mention API endpoints:
+
+- `/api/health`
+- `/api/skills/check`
+- `/api/judge/smoke`
+- `/api/evidence`
 
 ## 3:45 - 4:00: Close
 
-"CircuitStock combines live tokenized-stock infrastructure with a practical AI-agent UX: monitor, explain, prepare, simulate, require user control. No automatic broadcast, no hidden key exposure."
+"CircuitStock combines tokenized-stock market structure with an agent UX: compare issuers, explain premiums, draft actions, enforce guardrails, and never broadcast automatically."

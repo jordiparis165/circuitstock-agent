@@ -16,6 +16,7 @@ import {
   getRwaUnderlyingMarket,
   getRwaUnderlyingProfile,
   getWalletBalances,
+  measureRoundTripCost,
   searchRwaToken,
   simulateEvmTransaction
 } from "./binanceWeb3";
@@ -26,11 +27,13 @@ import { setKilled, startWatcher, tick, watcherStatus, type WatcherDeps } from "
 import { getPolicy, updatePolicy } from "./policy";
 import { getReferencePrices, referencePriceProvidersConfigured, startAlpacaStream, type ReferencePrice } from "./referencePrice";
 import { computeSpread, isOutlier, isTradeable, normalizePerSharePrice, parseCandleCloses } from "./spread";
-import { getToken, quoteTokens, tokenRegistry } from "./tokenRegistry";
+import { getQuoteToken, getToken, platformIdForSource, quoteTokens, tokenRegistry } from "./tokenRegistry";
 import { loadSampleSnapshot } from "./agent/fixtures";
 import { recentDecisions } from "./agent/ledger";
 import { runAgentCycle } from "./agent/runner";
-import { handleAgentChat, marketOverview } from "./agent/chatTools";
+import { handleAgentChat, marketOverview, runChatTool } from "./agent/chatTools";
+import { CHAT_TOOLS, llmStatus } from "./agent/llm";
+import { budgetSnapshot, checkRateLimit } from "./agent/llmBudget";
 import { createAlert, deleteAlert, listAlerts, patchAlert, testAlert } from "./agent/alerts";
 import { createPlan, deletePlan, listPlans, patchPlan, runPlan } from "./agent/plans";
 import { readSettings, recentSettingsChanges, resetSettings, setAgentEnabled, updateSettings } from "./agent/settings";
@@ -77,12 +80,49 @@ app.get("/", (_req, res) => {
   });
 });
 
+// Free-text chat: spends LLM credit, so it is rate limited per IP. The quick-action route below
+// costs nothing and stays open, which is what keeps the demo usable if the budget runs out.
 app.post("/api/agent/chat", async (req, res) => {
+  const ip = String(req.ip ?? req.socket.remoteAddress ?? "unknown");
+  const limit = checkRateLimit(ip);
+  if (!limit.allowed) {
+    res.setHeader("Retry-After", String(limit.retryAfterSec));
+    return res.status(429).json({
+      ok: false,
+      error: `Too many requests. Try again in ${limit.retryAfterSec}s.`,
+      retryAfterSec: limit.retryAfterSec
+    });
+  }
+  const message = String(req.body?.message ?? "").slice(0, 500);
+  if (!message.trim()) return res.status(400).json({ ok: false, error: "message is required." });
   try {
-    res.json(await handleAgentChat(String(req.body?.message ?? "")));
+    res.json(await handleAgentChat(message));
   } catch (error) {
     res.status(400).json({ ok: false, error: error instanceof Error ? error.message : "Agent chat failed." });
   }
+});
+
+// Deterministic tool call: same tools, same checks, no model involved.
+app.post("/api/agent/action", async (req, res) => {
+  const tool = String(req.body?.tool ?? "");
+  if (!CHAT_TOOLS.includes(tool as (typeof CHAT_TOOLS)[number])) {
+    return res.status(400).json({ ok: false, error: `Unknown tool. Expected one of: ${CHAT_TOOLS.join(", ")}` });
+  }
+  try {
+    const response = await runChatTool(tool as (typeof CHAT_TOOLS)[number], {
+      ticker: req.body?.ticker ? String(req.body.ticker) : undefined,
+      amount_usd: req.body?.amount_usd ? String(req.body.amount_usd) : undefined,
+      preset: req.body?.preset ? String(req.body.preset) : undefined,
+      message: req.body?.message ? String(req.body.message).slice(0, 500) : undefined
+    });
+    res.json({ ...response, llm: { available: false, reason: "Quick action: tools run without the model." } });
+  } catch (error) {
+    res.status(400).json({ ok: false, error: error instanceof Error ? error.message : "Agent action failed." });
+  }
+});
+
+app.get("/api/agent/status", (_req, res) => {
+  res.json({ ok: true, llm: llmStatus(), budget: budgetSnapshot(), tools: CHAT_TOOLS, settings: readSettings() });
 });
 
 app.get("/api/settings", (_req, res) => {
@@ -519,7 +559,9 @@ function tokensToOpportunities(tokens: RwaToken[]): Opportunity[] {
         liquidityUsd,
         shareRatio: Number(token.tokenToShareRatio),
         marketWindow: toMarketWindow(token),
-        contractReady: Boolean(token.tokenContractAddress && quoteTokens.usdc.address),
+        // Platform-aware: Ondo needs USDT configured, bStock needs USDC - checking only USDC would
+        // wrongly mark an Ondo token "ready" with no USDT address set (or vice versa).
+        contractReady: Boolean(token.tokenContractAddress && getQuoteToken(token.platformId, "56").address),
         tokenAddress: token.tokenContractAddress,
         decimals: Number(token.decimals || 18),
         score,
@@ -597,9 +639,17 @@ async function applyIndependentReference(opportunities: Opportunity[]): Promise<
   return repriced.sort((a, b) => b.score - a.score);
 }
 
-async function getTokenBySymbol(
-  symbol: string
-): Promise<{ symbol: string; address: string; decimals: number; name: string; underlyingTicker?: string } | null> {
+async function getTokenBySymbol(symbol: string): Promise<{
+  symbol: string;
+  address: string;
+  decimals: number;
+  name: string;
+  underlyingTicker?: string;
+  platformId: string;
+  // This app only ever queries/trades on BSC (56) - every token returned here comes from a
+  // BSC-scoped fetch, so hardcoding it is accurate, not a guess, as long as that stays true.
+  binanceChainId: string;
+} | null> {
   const local = getToken(symbol);
   for (const cached of rwaCache.values()) {
     const found = cached.tokens.find((token) => token.tokenSymbol.toLowerCase() === symbol.toLowerCase());
@@ -609,13 +659,23 @@ async function getTokenBySymbol(
         address: found.tokenContractAddress,
         decimals: Number(found.decimals || 18),
         name: found.underlyingName || found.tokenName,
-        underlyingTicker: found.underlyingTicker
+        underlyingTicker: found.underlyingTicker,
+        platformId: found.platformId,
+        binanceChainId: "56"
       };
     }
   }
   if (local?.address) {
     const inferredTicker = local.symbol.replace(/B$/i, "").replace(/x$/i, "");
-    return { symbol: local.symbol, address: local.address, decimals: local.decimals, name: local.name, underlyingTicker: inferredTicker };
+    return {
+      symbol: local.symbol,
+      address: local.address,
+      decimals: local.decimals,
+      name: local.name,
+      underlyingTicker: inferredTicker,
+      platformId: platformIdForSource(local.source),
+      binanceChainId: "56"
+    };
   }
   const { tokens } = await fetchRwaTokens(SUPPORTED_PLATFORMS, [9, 4, 11]);
   const found = tokens.find((token) => token.tokenSymbol.toLowerCase() === symbol.toLowerCase());
@@ -625,7 +685,9 @@ async function getTokenBySymbol(
     address: found.tokenContractAddress,
     decimals: Number(found.decimals || 18),
     name: found.underlyingName || found.tokenName,
-    underlyingTicker: found.underlyingTicker
+    underlyingTicker: found.underlyingTicker,
+    platformId: found.platformId,
+    binanceChainId: "56"
   };
 }
 
@@ -975,13 +1037,14 @@ async function prepareExecution(
   if (!token) {
     return { ok: false, mode: "unknown_token", error: `Unknown token symbol: ${symbol}` };
   }
-  if (!quoteTokens.usdc.address) {
-    return { ok: false, mode: "missing_contracts", error: "BSC_USDC_ADDRESS is missing." };
+  const quoteToken = getQuoteToken(token.platformId, token.binanceChainId);
+  if (!quoteToken.address) {
+    return { ok: false, mode: "missing_contracts", error: `${quoteToken.symbol} contract address is missing.` };
   }
 
-  const amount = BigInt(Math.round(amountUsd * 10 ** quoteTokens.usdc.decimals)).toString();
-  const fromTokenAddress = side === "buy" ? quoteTokens.usdc.address : token.address;
-  const toTokenAddress = side === "buy" ? token.address : quoteTokens.usdc.address;
+  const amount = BigInt(Math.round(amountUsd * 10 ** quoteToken.decimals)).toString();
+  const fromTokenAddress = side === "buy" ? quoteToken.address : token.address;
+  const toTokenAddress = side === "buy" ? token.address : quoteToken.address;
   const quote = await getBinanceQuote({ fromTokenAddress, toTokenAddress, amount, walletAddress, slippageBps });
   const selectedQuote = quote.ok ? pickQuote(quote.data) : null;
   const quoteId = typeof selectedQuote?.quoteId === "string" ? selectedQuote.quoteId : null;
@@ -1114,6 +1177,7 @@ async function prepareExecution(
 }
 
 app.get("/api/health", (_req, res) => {
+  const providers = referencePriceProvidersConfigured();
   res.json({
     ok: true,
     service: "circuitstock-agent",
@@ -1123,7 +1187,19 @@ app.get("/api/health", (_req, res) => {
     quotePath: config.quotePath,
     baseUrl: config.baseUrl,
     bscRpcUrl: config.bscRpcUrl,
-    supportedPlatforms: SUPPORTED_PLATFORMS
+    supportedPlatforms: SUPPORTED_PLATFORMS,
+    // Per-source truth, so a judge (or we) can see what is actually live without reading code.
+    sources: {
+      binanceWeb3: Boolean(config.apiKey && config.apiSecret),
+      alpaca: providers.alpaca,
+      finnhub: providers.finnhub,
+      // The independent reference needs a provider *and* a populated universe; either one
+      // missing silently falls back to the Binance-derived figure, which is not independent.
+      independentReferenceActive: (providers.alpaca || providers.finnhub) && universeBySymbol.size > 0,
+      universeSize: universeBySymbol.size,
+      llm: llmStatus()
+    },
+    llmBudget: budgetSnapshot()
   });
 });
 
@@ -1541,22 +1617,23 @@ app.post("/api/quote", async (req, res) => {
     return;
   }
 
-  if (!quoteTokens.usdc.address) {
+  const quoteToken = getQuoteToken(token.platformId, token.binanceChainId);
+  if (!quoteToken.address) {
     res.json({
       ok: false,
       mode: "missing_contracts",
-      error: "Add token contract addresses and BSC_USDC_ADDRESS in .env before requesting live quotes.",
+      error: `Add token contract addresses and the ${quoteToken.symbol} address in .env before requesting live quotes.`,
       token,
-      quoteToken: quoteTokens.usdc
+      quoteToken
     });
     return;
   }
 
   const slippageBps = resolveSlippageBps(req.body?.slippageBps);
-  const amount = BigInt(Math.round(amountUsd * 10 ** quoteTokens.usdc.decimals)).toString();
+  const amount = BigInt(Math.round(amountUsd * 10 ** quoteToken.decimals)).toString();
   const quote = await getBinanceQuote({
-    fromTokenAddress: side === "buy" ? quoteTokens.usdc.address : token.address,
-    toTokenAddress: side === "buy" ? token.address : quoteTokens.usdc.address,
+    fromTokenAddress: side === "buy" ? quoteToken.address : token.address,
+    toTokenAddress: side === "buy" ? token.address : quoteToken.address,
     amount,
     walletAddress,
     slippageBps
@@ -1573,16 +1650,17 @@ app.post("/api/swap", async (req, res) => {
   const quoteId = req.body?.quoteId ? String(req.body.quoteId) : undefined;
   const token = await getTokenBySymbol(symbol);
 
-  if (!token || !quoteTokens.usdc.address || !walletAddress || !quoteId) {
+  const quoteToken = token ? getQuoteToken(token.platformId, token.binanceChainId) : null;
+  if (!token || !quoteToken?.address || !walletAddress || !quoteId) {
     res.status(400).json({ ok: false, error: "symbol, walletAddress and quoteId are required for swap building." });
     return;
   }
 
   const slippageBps = resolveSlippageBps(req.body?.slippageBps);
-  const amount = BigInt(Math.round(amountUsd * 10 ** quoteTokens.usdc.decimals)).toString();
+  const amount = BigInt(Math.round(amountUsd * 10 ** quoteToken.decimals)).toString();
   const swap = await getBinanceSwap({
-    fromTokenAddress: side === "buy" ? quoteTokens.usdc.address : token.address,
-    toTokenAddress: side === "buy" ? token.address : quoteTokens.usdc.address,
+    fromTokenAddress: side === "buy" ? quoteToken.address : token.address,
+    toTokenAddress: side === "buy" ? token.address : quoteToken.address,
     amount,
     walletAddress,
     quoteId,
@@ -1771,7 +1849,20 @@ const watcherDeps: WatcherDeps = {
     return applyIndependentReference(tokensToOpportunities(tokens));
   },
   prepare: (symbol, side, amountUsd, walletAddress, slippageBps) =>
-    prepareExecution(symbol, side, amountUsd, walletAddress, resolveSlippageBps(slippageBps))
+    prepareExecution(symbol, side, amountUsd, walletAddress, resolveSlippageBps(slippageBps)),
+  measureRoundTripCost: async (tokenAddress, side, amountUsd) => {
+    const platforms = [...universeBySymbol.values()];
+    const entry = platforms.find((p) => p.tokenContractAddress.toLowerCase() === tokenAddress.toLowerCase());
+    const quoteToken = getQuoteToken(entry?.platformId, "56");
+    if (!quoteToken.address) return null;
+    const amount = BigInt(Math.round(amountUsd * 10 ** quoteToken.decimals)).toString();
+    // measureRoundTripCost always buys first then sells back - for a "sell"/trim candidate this
+    // still answers the question that matters (is this route expensive to transact), just not
+    // literally in the candidate's own direction. Documented, not silently assumed equivalent.
+    void side;
+    const result = await measureRoundTripCost(tokenAddress, quoteToken.address, amount, undefined);
+    return result.ok ? result.costPct : null;
+  }
 };
 
 app.get("/api/watcher/status", (_req, res) => {

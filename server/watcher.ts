@@ -7,6 +7,7 @@ type WatchedOpportunity = {
   spreadBps: number;
   score: number;
   liquidityUsd: number;
+  tokenAddress: string;
 };
 
 export type WatcherDeps = {
@@ -18,6 +19,10 @@ export type WatcherDeps = {
     walletAddress?: string,
     slippageBps?: number
   ) => Promise<{ ok?: boolean; simulationSummary?: { status?: string } | null; error?: string }>;
+  // Measures the real executable round-trip cost for this exact token/side/size (buy-quote then
+  // sell-quote the exact amount received). Returns null if it couldn't be measured - evaluate()
+  // treats that as a fail-closed rejection, never a pass.
+  measureRoundTripCost: (tokenAddress: string, side: "buy" | "sell", amountUsd: number) => Promise<number | null>;
 };
 
 const state: WatcherState = loadState();
@@ -42,9 +47,18 @@ export async function tick(deps: WatcherDeps): Promise<Decision> {
     const top = opportunities.find((item) => item.direction !== "watch" && Math.abs(item.spreadBps) >= policy.minSpreadBps);
     if (!top) return record({ symbol: null, side: null, amountUsd: 0, outcome: "idle", reasons: ["no spread above threshold"] });
 
-    const side = top.direction === "trim" ? "sell" : "buy";
+    const side: "buy" | "sell" = top.direction === "trim" ? "sell" : "buy";
     const amountUsd = policy.maxTradeUsd;
-    const candidate = { symbol: top.symbol, side, amountUsd, spreadBps: top.spreadBps, score: top.score, liquidityUsd: top.liquidityUsd } as const;
+    const roundTripCostPct = (await deps.measureRoundTripCost(top.tokenAddress, side, amountUsd)) ?? undefined;
+    const candidate = {
+      symbol: top.symbol,
+      side,
+      amountUsd,
+      spreadBps: top.spreadBps,
+      score: top.score,
+      liquidityUsd: top.liquidityUsd,
+      roundTripCostPct
+    };
 
     const violations = evaluate(candidate, policy, state);
     if (violations.length) return record({ symbol: top.symbol, side, amountUsd, outcome: "skipped", reasons: violations });

@@ -82,4 +82,4 @@ Reads or proposes settings such as preset, max order, allowed issuers and kill s
 
 ## Final Form Text
 
-CircuitStock is an agentic tokenized-stocks cockpit for BSC. It combines live Binance Web3 RWA data, Trading API quotes, official approval/swap calldata, gas checks and transaction simulation with an AI-agent layer for recommendations, alerts, recurring plans and guardrails. The product is intentionally safe: no backend or frontend path broadcasts transactions. Judges can verify the full flow through the live dashboard, Agent Studio, `/api/judge/smoke`, and the documented demo script.
+CircuitStock is an agentic tokenized-stocks cockpit for BSC. It combines Binance Web3 RWA data, cross-issuer replay snapshots, Wallet Skills checks and an AI-agent layer for recommendations, alerts, recurring plans and guardrails. The product is intentionally safe: no backend or frontend path broadcasts transactions. Judges can verify the full flow through Dashboard, Agent, Skills, `/api/judge/smoke`, and the documented demo script.
