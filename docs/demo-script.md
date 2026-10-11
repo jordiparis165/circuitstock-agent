@@ -1,60 +1,84 @@
 # Demo Script
 
-Target length: under 4 minutes.
+Target length: 3:30 to 4:00.
 
-## 0:00 - 0:30: Problem
+## 0:00 - 0:25: Hook
 
-Tokenized equities trade on-chain while traditional reference markets have different hours and infrastructure. CircuitStock watches the on-chain/reference spread and prepares cautious actions.
+"CircuitStock is an AI agent cockpit for tokenized stocks on BSC. It compares bStocks and Ondo issuers, checks the reference layer, explains the result, and keeps execution simulated so the user stays in control."
 
-## 0:30 - 1:10: Live Scanner
+Open: `https://circuitstock-agent.vercel.app`
 
-Open the dashboard. Show the live watchlist powered by Binance Web3 RWA Data API. Point out:
+## 0:25 - 0:55: Dashboard
 
-- tokenized stock symbol
-- source platform
-- on-chain price
-- reference price
-- spread in basis points
-- liquidity-aware score
+Show:
 
-## 1:10 - 1:45: First Stock Flow
+- issuer spread heatmap
+- replay/live status
+- premium/reference state
+- visible checks
 
-Use the **First stock flow**. Pick TSLA or NVDA, keep `$10`, and click **Preview buy**. Explain that a non-crypto-native user can start from a familiar stock, while the app still uses the agent engine behind the scenes.
+Say: "The important product choice is honesty: if the independent reference or a skill is unavailable, the UI labels it instead of inventing a signal."
 
-## 1:45 - 2:20: Agent Recommendation
+## 0:55 - 1:45: Agent
 
-Show the right panel. The agent ranks actions by spread, liquidity, and market status. It uses small default trade sizing, requires simulation, and never broadcasts automatically.
+Open **Agent**.
 
-## 2:20 - 3:10: Execution Preparation
+Prompt 1:
 
-Click **Prepare execution**.
+```text
+buy 50 USD of MSFT
+```
 
-Show the checklist:
+Show the simulated card, issuer choice, checks, no signature and no broadcast.
 
-- quote received
-- approval calldata extracted
-- swap calldata built
-- transaction simulated
-- no broadcast
+Prompt 2:
 
-Point out quote ID, vendor, price impact, approval target, and simulation feedback. If simulation says allowance is missing, explain that this is exactly why the app separates approval signing from swap signing.
+```text
+previens moi quand NVDA est sous la prime 0.2
+```
 
-## 3:10 - 3:35: Wallet Boundary
+Show the alert draft.
 
-Connect wallet if available. Try **Sign/copy approval** and **Sign/copy swap**. Explain that wallet support may vary, but CircuitStock never broadcasts automatically and keeps the transaction payload inspectable.
+Say: "The model, when configured, only routes the request and words the response. The numbers and checks come from deterministic code. Without an OpenAI key, common prompts still route through deterministic fallback."
 
-## 3:35 - 4:00: Prize Fit
+## 1:45 - 2:35: Settings And Safety
 
-Mention:
+Open **Settings**.
 
-- RWA Data API
-- Trading API
-- Transaction API
-- Agent-friendly `/api/agent/recommend`
-- Compact skill endpoint `/api/agent/recommend/compact`
-- Natural-language endpoint `/api/agent/interpret`
-- Dry-run watcher `/api/watcher/status` and `/api/watcher/tick`
-- Thematic basket planner `/api/baskets/plan`
-- Judge smoke test `/api/judge/smoke`
-- b402 demo manifest `/api/b402/manifest`
-- ready path for Agentic Wallet / Wallet Skills and BNB Agent Studio
+Show:
+
+- kill switch
+- max order
+- premium threshold
+- allowed issuers
+- confirmation mode
+- change log
+
+Say: "This is the agent safety layer. The agent may propose a settings change, but settings remain the source of truth and require user confirmation."
+
+## 2:35 - 3:15: Portfolio, Alerts, Plans
+
+Open **Portfolio**, **Alerts** and **Plans** quickly.
+
+Say: "Every portfolio rotation, alert and recurring plan is simulated in this build. That makes the agent useful for judging without pretending we have live autonomous settlement."
+
+## 3:15 - 3:45: Skills And API Evidence
+
+Open **Skills**.
+
+Show:
+
+- Wallet Skills checks
+- call log
+- audit unknown/pass/fail behavior
+
+Mention API endpoints:
+
+- `/api/health`
+- `/api/skills/check`
+- `/api/judge/smoke`
+- `/api/evidence`
+
+## 3:45 - 4:00: Close
+
+"CircuitStock combines tokenized-stock market structure with an agent UX: compare issuers, explain premiums, draft actions, enforce guardrails, and never broadcast automatically."

@@ -114,20 +114,21 @@ export async function handleAgentChat(message: string): Promise<AgentChatRespons
   if (!settings.agent_enabled) return disabledCard(settings);
 
   const status = llmStatus();
-  if (!status.configured) return llmUnavailableCard(status.reason ?? "The conversational agent is not configured.");
-  if (!tokenBudgetAvailable()) {
+  if (status.configured && !tokenBudgetAvailable()) {
     return llmUnavailableCard("The daily LLM budget for this public demo is spent. The quick actions below still work.");
   }
 
   const routed = await routeMessage(message);
   if (!routed.ok) return llmUnavailableCard(routed.error);
-  recordTokens(routed.usedTokens);
+  if (routed.usedTokens > 0) recordTokens(routed.usedTokens);
 
   const response = await dispatch(settings, routed.route, message);
-  response.llm = { available: true, model: status.model, routedTo: routed.route.tool };
+  response.llm = status.configured
+    ? { available: true, model: status.model, routedTo: routed.route.tool }
+    : { available: false, reason: status.reason, routedTo: routed.route.tool };
 
   // The explanation is a nicety: if it fails we keep the deterministic reply rather than error.
-  if (tokenBudgetAvailable()) {
+  if (status.configured && tokenBudgetAvailable()) {
     const explained = await explainCard({ message, reply: response.reply, card: response.card });
     if (explained) {
       recordTokens(explained.usedTokens);

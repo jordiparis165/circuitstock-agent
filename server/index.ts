@@ -1431,18 +1431,6 @@ app.get("/api/judge/smoke", async (_req, res) => {
   }
   const watcher = watcherStatus();
   checks.push({ name: "watcher", ok: watcher.policy.mode === "dry-run", detail: { enabled: watcher.enabled, killed: watcher.killed } });
-  // TEMPORARY - surfaces the build/test lifetime budget cap for judges only; this check (and the
-  // field behind it) disappears once AUTO_TEST_LIFETIME_USD is unset/removed before delivery.
-  if (watcher.policy.testLifetimeCapUsd !== undefined) {
-    checks.push({
-      name: "test-budget-cap",
-      ok: true,
-      detail: {
-        capUsd: watcher.policy.testLifetimeCapUsd,
-        note: "Temporary cumulative cap for the build/test phase only - not a permanent product limit, removed before final delivery."
-      }
-    });
-  }
   try {
     const wallet = await walletReadiness("0x000000000000000000000000000000000000dEaD");
     checks.push({

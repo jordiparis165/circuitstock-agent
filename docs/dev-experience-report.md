@@ -2,109 +2,103 @@
 
 ## Summary
 
-CircuitStock Agent integrates Binance Web3 APIs for the BNB Hack: Tokenized Stocks Edition. The production flow is:
+CircuitStock integrates Binance Web3 APIs for the BNB Hack: Tokenized Stocks Edition. The final product is a dashboard plus AI-agent layer for tokenized stocks on BSC:
 
-1. Scan live RWA tokenized stocks on BSC.
-2. Compare `tokenPrice` against `referencePrice`.
-3. Score spread, liquidity, source, market status, volatility, and risk profile.
-4. Resolve a stock prompt such as "buy $10 of TSLA".
-5. Fetch a Trading API quote.
-6. Fetch the official approval transaction.
-7. Build swap calldata.
-8. Check gas price and gas limit.
-9. Simulate before signing.
-10. Ask the user wallet to sign only; CircuitStock never broadcasts.
+1. Scan bStocks/Ondo tokenized-stock data.
+2. Rank on-chain/reference spreads.
+3. Explain opportunities and risk checks.
+4. Prepare quote, approval calldata, swap calldata, gas checks and simulation.
+5. Let the user wallet sign if supported.
+6. Never broadcast automatically.
 
-This directly targets the hackathon scoring mix: technical depth, product creativity, developer experience, and judge-friendly UX.
+The agent layer adds prompts, simulated buy cards, premium checks, alert drafts, plan drafts, settings proposals, dry-run watcher policy and Wallet Skills evidence.
 
-## What Worked Well
+## What Is Real
 
-- RWA Data API is the strongest starting point for tokenized stocks. `tokenPrice`, `referencePrice`, `volume24H`, `statusInfo`, ticker, and platform data made the spread scanner possible without scraping or third-party data.
-- Trading API quote responses include enough route metadata to build a judge-readable execution preview: `quoteId`, vendor, price impact, expected output, approve target, and route status.
-- Transaction API simulation is useful even when the simulated transaction fails. It turns missing allowance or insufficient balance into a safe pre-flight message instead of a wasted on-chain attempt.
-- Wallet API calls let the agent prove it checked balances/portfolio before asking for any signature.
-- RWA search/profile/underlying-market endpoints make natural-language prompts much better: the agent can resolve "TSLA" and show company context before trade prep.
+- Server-side Binance Web3 signed request client.
+- RWA scanner with `live`, `cached` and `fallback` status.
+- Trading API quote and swap-build path.
+- Official approval transaction extraction.
+- Gas price, gas limit and simulation calls.
+- Wallet balance/portfolio checks where Binance endpoints are available.
+- BSC RPC readiness check.
+- Agent settings, alerts and plans persisted under `data/`.
+- Wallet Skills read-only checks and `/api/skills/log`.
+- Local tests for policy, spreads, reference selection and Part B agent behavior.
 
-## Concrete Integration Notes
+## What Is Simulated Or Optional
 
-- Base URL used: `https://web3.binance.com/build`.
-- Signature path must include `/build`. Signing only `/api/v1/...` produced invalid signature errors.
-- Headers used for signed requests: `X-OC-APIKEY`, `X-OC-TIMESTAMP`, and `X-OC-SIGN`.
-- Signature shape: Base64 HMAC-SHA256 over `timestamp + method + requestPath + body`.
-- `GET` and `POST` must both be supported because quote/swap are GET-style calls while simulation/gas-limit use POST.
-- Quote IDs are short-lived. CircuitStock builds swap calldata immediately after selecting a quote and displays a clean "quote expired" error when needed.
-- Swap/approval responses can contain nested `signatureData`/`tx` objects. CircuitStock extracts EVM transaction fields defensively instead of assuming a single response shape.
-- Simulation can return HTTP success while execution status is failed. CircuitStock reads the nested status/fail reason and maps it to messages such as "Needs USDC approval" or "Simulation failed: allowance missing".
-- Some wallets do not support `eth_signTransaction`. The app now attempts raw signing, then falls back to copying/displaying the transaction payload with "No broadcast performed".
-- Rapid local scans can trigger rate-limit behavior. CircuitStock has a short cache and a `fallback` scanner mode so the dashboard stays usable while still labeling non-live data.
+- Conversational buy/alert/plan cards are simulated by design.
+- The watcher is dry-run and refuses real live execution because no Agentic Wallet executor is wired.
+- OpenAI reasoning is optional. If `OPENAI_API_KEY` is absent, deterministic fallback is used.
+- Independent reference pricing requires Alpaca/Finnhub credentials and a populated `config/universe.json`.
+- Replay snapshots are demo fixtures for cross-issuer agent behavior, not proof of live fillable arbitrage.
 
-## Endpoints Used
+## Integration Notes
 
-- `GET /api/v1/dex/market/rwa/tokens`
-- `GET /api/v1/dex/market/rwa/price`
-- `GET /api/v1/dex/market/rwa/platforms`
-- `GET /api/v1/dex/market/rwa/search`
-- `GET /api/v1/dex/market/rwa/underlying-profile`
-- `GET /api/v1/dex/market/rwa/underlying-market`
-- `GET /api/v1/dex/market/candles`
-- `GET /api/v1/dex/aggregator/quote`
-- `GET /api/v1/dex/aggregator/approve-transaction`
-- `GET /api/v1/dex/aggregator/swap`
-- `GET /api/v1/dex/aggregator/history`
-- `GET /api/v1/dex/pre-transaction/gas-price`
-- `POST /api/v1/dex/pre-transaction/gas-limit`
-- `POST /api/v1/dex/pre-transaction/simulate`
-- `GET /api/v1/dex/balance/all-token-balances-by-address`
-- `GET /api/v1/dex/market/portfolio/overview`
+- Base URL: `https://web3.binance.com/build`.
+- The signed path must include `/build`; signing only `/api/v1/...` produces signature failures.
+- Signed headers: `X-OC-APIKEY`, `X-OC-TIMESTAMP`, `X-OC-SIGN`.
+- Signature: Base64 HMAC-SHA256 over `timestamp + method + requestPath + body`.
+- Both `GET` and `POST` signing are required.
+- Quote IDs expire quickly, so swap calldata is built immediately and quote-expired errors are normalized.
+- Approval/swap responses can nest EVM transaction fields under different shapes; extraction must be defensive.
+- Simulation can return HTTP success while the simulated EVM execution fails. The UI must read nested execution status and display a human reason.
+- `eth_signTransaction` is not consistently supported by injected wallets. CircuitStock therefore keeps payloads visible/copyable and labels the failed signature attempt clearly.
+- Wallet Skills endpoints can fail from region, headers or endpoint changes. Failures are logged instead of hidden.
 
 ## Product Decisions
 
-- Default demo size is `$10` to keep the live flow small and judge-safe.
-- BSC mainnet only, spot only.
-- No automatic broadcast exists in the backend or frontend.
-- The frontend shows a complete execution checklist: live RWA data, quote, wallet check, approval API, approval calldata, swap calldata, gas estimate, research context, simulation, user signature only, and no broadcast.
-- A "First stock flow" was added for non-crypto-native judges: pick TSLA/NVDA/MSFT/SPY, preview a buy, and see the same quote/simulate/sign boundary.
-- Agent endpoints reuse the same engine as the UI, so Wallet Skills and Agent Studio do not rely on a separate code path.
-- A dry-run watcher was added to demonstrate autonomous runtime behavior without crossing the signing/broadcast boundary. It has explicit whitelist, spread, score, liquidity, max trade, daily budget, slippage, cooldown and kill-switch controls.
-- A basket planner was added because "one-tap thematic baskets" is one of the clearest non-crypto-native UX paths for tokenized stocks. It uses the same RWA scanner and marks legs as buy-ready only when the live spread supports it.
-- A judge smoke-test endpoint was added so reviewers can verify health, market data, baskets, watcher, b402 and no-broadcast status in one call.
+- Default demo amount is small (`$10` to `$50` depending on flow).
+- BSC mainnet only.
+- Spot only.
+- No broadcast path.
+- Dashboard-first UX, no marketing landing page.
+- Agent cards show checks, sources, thresholds and "would change if" conditions.
+- Risk rules are explicit: kill switch, whitelist, max trade, daily budget, slippage, cooldown and simulation gate.
 
-## Agent Studio and b402/x402 Notes
+## Final API Surface
 
-- `POST /api/agent/recommend/compact` returns a compact skill payload: recommendation, reason, confidence, required user action, transaction preview, cache status, and skills.
-- `POST /api/agent/interpret` accepts plain-language prompts and returns parsed intent, RWA research, optional execution preview, and a spoken summary.
-- `POST /api/ai/agent` adds an optional LLM reasoning layer using OpenAI Responses API when configured, with deterministic fallback when not configured.
-- `GET /api/b402/manifest` exposes a payment-gated agent route shape.
-- `POST /api/premium/signal` demonstrates a b402/x402-compatible `402 Payment Required` flow for premium monitoring. It is explicit demo mode and does not collect production payment.
-- `skills/circuitstock/SKILL.md` and `skills/circuitstock/skill.json` document `scan_tokenized_stock_spreads`, `prepare_rebalance`, `plain_language_stock_prompt`, and `premium_signal_demo`.
-- `GET /api/watcher/status` and `POST /api/watcher/tick` expose the autonomous dry-run monitor that Agent Studio could run on a schedule.
-- Policy tests cover whitelist, daily budget and cooldown behavior with `npm run test`.
+- `GET /api/health`
+- `GET /api/evidence`
+- `GET /api/market`
+- `POST /api/execution/prepare`
+- `POST /api/agent/recommend`
+- `POST /api/agent/recommend/compact`
+- `POST /api/agent/chat`
+- `GET|PUT /api/settings`
+- `POST /api/settings/kill`
+- `GET /api/market/overview`
+- `GET /api/portfolio`
+- `GET|POST|PATCH|DELETE /api/alerts`
+- `GET|POST|PATCH|DELETE /api/plans`
+- `GET /api/opportunities`
+- `GET /api/skills/log`
+- `GET /api/skills/check`
+- `GET /api/judge/readiness`
+- `GET /api/judge/smoke`
 
-## Deployment Lessons
+## Lessons For Binance
 
-- Vercel originally tried to process Render config when the repo contained `render.yaml`; `.vercelignore` now excludes deployment-only files that Vercel does not need.
-- Vercel production must set `VITE_API_BASE_URL` to the Render API URL, otherwise the static app calls `/api` on Vercel.
-- Render free web services work for the demo, but cold starts can delay the first API call.
-- Render root `/` returned 404 at first even though `/api/health` worked. The API now exposes a root JSON route with links to health, evidence, and agent endpoints.
-- `render.yaml` now lists non-secret endpoint defaults; only API key and secret are supplied as Render secrets.
-
-## Suggested Binance Improvements
-
-- Publish a minimal official TypeScript client for signed Web3 API requests.
-- Add an end-to-end tokenized stock example: RWA tokens -> quote -> approval -> swap -> gas -> simulate.
-- Document exact response shapes for `signatureData` in approve/swap responses across vendors.
-- Expose rate-limit headers and retry-after guidance.
-- Provide a Wallet Skills / Agent Studio starter kit for RWA agents, including a no-broadcast signing boundary.
+- A TypeScript SDK for signed Web3 API requests would remove the most error-prone integration step.
+- RWA docs should explicitly distinguish exchange-derived reference prices from independent equity-market references.
+- Quote expiry and response shapes should be documented with exact examples.
+- Wallet Skills documentation would benefit from a tokenized-stock sample that includes "prepare but do not broadcast".
+- Rate-limit headers and retry guidance would make production caching cleaner.
 
 ## Verification Snapshot
 
-- Local build command: `npm run build`.
-- Production API: `https://circuitstock-agent-api.onrender.com/api/health`.
-- Production frontend: `https://circuitstock-agent.vercel.app`.
-- Sanitized evidence endpoint: `GET /api/evidence`.
-- Payment hook manifest: `GET /api/b402/manifest`.
-- Demo payment route: `POST /api/premium/signal` with optional header `x-demo-payment: paid`.
-- Dry-run watcher: `GET /api/watcher/status` and `POST /api/watcher/tick`.
-- Thematic basket planner: `POST /api/baskets/plan`.
-- Judge smoke test: `GET /api/judge/smoke`.
-- AI reasoning copilot: `POST /api/ai/agent`.
+Local:
+
+```bash
+npm run build
+npm run test -- --run
+```
+
+Production:
+
+```text
+GET https://circuitstock-agent-api.onrender.com/api/health
+GET https://circuitstock-agent-api.onrender.com/api/judge/smoke
+POST https://circuitstock-agent-api.onrender.com/api/agent/chat
+```

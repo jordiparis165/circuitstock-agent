@@ -17,6 +17,7 @@ export type AlertRule = {
 };
 
 export type AlertTrigger = { id: string; alertId: string; at: string; message: string; test: boolean };
+const knownTickers = ["AAPL", "NVDA", "TSLA", "MSFT", "AMZN", "META", "GOOG", "GOOGL", "SPY", "IBM", "QCOM", "NOK", "TSM", "IBMB", "QCOMB", "NOKB", "TSMB", "SPYB", "NVDAB", "TSLAB", "MSFTB"];
 
 function alertsPath(): string {
   return path.resolve(process.cwd(), pickEnv(["AGENT_ALERTS_PATH"]) ?? "data/agent-alerts.json");
@@ -93,11 +94,43 @@ export function testAlert(id: string): AlertTrigger {
 }
 
 export function parseAlertDraft(text: string): Partial<AlertRule> {
-  const ignored = new Set(["MOI", "SOUS", "QUAND", "PRIME", "PREMIUM", "PREVIENS", "ALERTE", "USD", "EUR", "LA", "LE", "DE", "DU", "DES"]);
+  const known = knownTickers.find((symbol) => new RegExp(`\\b${symbol}\\b`, "i").test(text));
+  const ignored = new Set([
+    "MOI",
+    "SOUS",
+    "QUAND",
+    "PRIME",
+    "PREMIUM",
+    "PREVIENS",
+    "PREVIENT",
+    "VIENS",
+    "ALERTE",
+    "ALERT",
+    "NOTIFY",
+    "WHEN",
+    "IS",
+    "IT",
+    "GOOD",
+    "MOMENT",
+    "TO",
+    "EST",
+    "USD",
+    "USDT",
+    "USDC",
+    "EUR",
+    "LA",
+    "LE",
+    "DE",
+    "DU",
+    "DES",
+    "PR"
+  ]);
   const ticker =
+    known ??
     [...text.matchAll(/\b[A-Z]{2,5}\b/gi)]
       .map((match) => match[0].toUpperCase())
-      .find((item) => !ignored.has(item)) ?? "NVDA";
+      .find((item) => !ignored.has(item)) ??
+    "NVDA";
   const value = text.match(/(\d+(?:[.,]\d+)?)\s*%?/)?.[1]?.replace(",", ".") ?? "0.3";
   const op = /above|sup|plus|>/i.test(text) ? ">" : "<";
   return { type: "premium", ticker, condition: { op, value }, cooldown_s: 3600, channels: ["in_app", "browser"], enabled: true };

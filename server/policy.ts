@@ -23,17 +23,11 @@ export type AutoPolicy = {
   // alone can't be trusted (observed as low as ~0.1% on a route whose real round-trip cost was
   // 11-53%).
   maxRoundTripCostPct: number;
-  // TEMPORARY: one-time cumulative spend cap for the build/test phase only (set via
-  // AUTO_TEST_LIFETIME_USD). Remove this field, its env var, and the evaluate() check below
-  // before final delivery - it is not meant to be a permanent product limit and is intentionally
-  // kept off the Agent Studio page so end users never see it as a "real" setting.
-  testLifetimeCapUsd?: number;
 };
 
 // Fields the end user can tune for their own risk/budget from the UI (Agent Studio). Everything
-// else (enabled, mode, intervalSec, walletAddress, testLifetimeCapUsd, maxRoundTripCostPct) stays
-// operator/env-only - maxRoundTripCostPct in particular is a hard safety invariant, not a risk
-// preference, so it's deliberately not exposed for a user to loosen from the UI.
+// else (enabled, mode, intervalSec, walletAddress, maxRoundTripCostPct) stays operator/env-only.
+// maxRoundTripCostPct is a hard safety invariant, not a risk preference, so users cannot loosen it.
 export type EditablePolicy = Pick<
   AutoPolicy,
   "minSpreadBps" | "minScore" | "minLiquidityUsd" | "maxTradeUsd" | "maxDailyUsd" | "maxSlippageBps" | "cooldownSec" | "allowedSymbols"
@@ -78,11 +72,6 @@ function num(key: string, fallback: number): number {
   return Number.isFinite(value) && value > 0 ? value : fallback;
 }
 
-function numOptional(key: string): number | undefined {
-  const value = Number(pickEnv([key]));
-  return Number.isFinite(value) && value > 0 ? value : undefined;
-}
-
 export function loadPolicy(): AutoPolicy {
   return {
     enabled: pickEnv(["AUTO_ENABLED"]) === "true",
@@ -102,9 +91,7 @@ export function loadPolicy(): AutoPolicy {
       .split(",")
       .map((symbol) => symbol.trim().toUpperCase())
       .filter(Boolean),
-    walletAddress: pickEnv(["AUTO_WALLET_ADDRESS"]),
-    // TEMPORARY - see the field's doc comment on AutoPolicy.
-    testLifetimeCapUsd: numOptional("AUTO_TEST_LIFETIME_USD")
+    walletAddress: pickEnv(["AUTO_WALLET_ADDRESS"])
   };
 }
 
@@ -179,11 +166,6 @@ export function spentToday(state: WatcherState, now = new Date()): number {
   return state.spentByDay[today(now)] ?? 0;
 }
 
-/** TEMPORARY - cumulative spend across every day, used only for the build/test lifetime cap. */
-export function spentLifetime(state: WatcherState): number {
-  return Object.values(state.spentByDay).reduce((sum, value) => sum + value, 0);
-}
-
 /** Returns the list of violated rules; an empty list means the trade is allowed. */
 export function evaluate(candidate: Candidate, policy: AutoPolicy, state: WatcherState, now = new Date()): string[] {
   const violations: string[] = [];
@@ -204,15 +186,6 @@ export function evaluate(candidate: Candidate, policy: AutoPolicy, state: Watche
   const spent = spentToday(state, now);
   if (spent + candidate.amountUsd > policy.maxDailyUsd) {
     violations.push(`daily budget exceeded ($${spent} spent + $${candidate.amountUsd} > $${policy.maxDailyUsd})`);
-  }
-  // TEMPORARY - build/test phase only, see AutoPolicy.testLifetimeCapUsd. Remove before delivery.
-  if (policy.testLifetimeCapUsd !== undefined) {
-    const lifetimeSpent = spentLifetime(state);
-    if (lifetimeSpent + candidate.amountUsd > policy.testLifetimeCapUsd) {
-      violations.push(
-        `TEST budget cap reached ($${lifetimeSpent} spent + $${candidate.amountUsd} > $${policy.testLifetimeCapUsd} lifetime test cap - temporary, removed before delivery)`
-      );
-    }
   }
   const last = state.lastTradeAt[symbol];
   if (last && now.getTime() - new Date(last).getTime() < policy.cooldownSec * 1000) {

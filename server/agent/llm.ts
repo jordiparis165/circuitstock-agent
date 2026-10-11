@@ -127,6 +127,49 @@ function parseJsonObject(text: string): Record<string, unknown> | null {
   return null;
 }
 
+const KNOWN_TICKERS = [
+  "AAPL",
+  "NVDA",
+  "TSLA",
+  "MSFT",
+  "AMZN",
+  "META",
+  "GOOG",
+  "GOOGL",
+  "SPY",
+  "IBM",
+  "QCOM",
+  "NOK",
+  "TSM",
+  "IBMB",
+  "QCOMB",
+  "NOKB",
+  "TSMB",
+  "SPYB",
+  "NVDAB",
+  "TSLAB",
+  "MSFTB"
+];
+
+function deterministicRoute(message: string): ChatRoute {
+  const ticker = KNOWN_TICKERS.find((symbol) => new RegExp(`\\b${symbol}\\b`, "i").test(message));
+  const amount = message.match(/(\d+(?:[.,]\d+)?)\s*(?:\$|usd|usdt|usdc|eur)?/i)?.[1]?.replace(",", ".");
+  const lower = message.toLowerCase();
+
+  if (/alert|alerte|pr[eé]viens|previens|notify|when|quand/.test(lower)) return { tool: "create_alert", ticker };
+  if (/plan|weekly|monthly|daily|semaine|mensuel|quotidien|r[eé]current|recurring/.test(lower)) {
+    return { tool: "create_plan", ticker, amount_usd: amount };
+  }
+  if (/setting|settings|r[eé]glage|risk|prudent|dynamic|dynamique|balanced|[eé]quilibr[eé]/.test(lower)) {
+    const preset = /prudent/.test(lower) ? "prudent" : /dynamic|dynamique/.test(lower) ? "dynamic" : "balanced";
+    return { tool: "propose_setting_change", ticker, preset };
+  }
+  if (/rotation|rotate|swap|issuer|[eé]metteur|emetteur/.test(lower)) return { tool: "propose_rotation", ticker };
+  if (/buy|ach[eè]te|acheter|purchase/.test(lower) && amount) return { tool: "propose_buy", ticker, amount_usd: amount };
+  if (/premium|prime|expensive|cheap|cher|int[eé]ressant|worth|moment|acheter|buy/.test(lower)) return { tool: "get_premium", ticker };
+  return { tool: "get_premium", ticker };
+}
+
 const ROUTER_INSTRUCTIONS = [
   "You route a user's request about tokenized stocks to exactly one tool, and extract its parameters.",
   "Reply with a single JSON object and nothing else.",
@@ -141,6 +184,8 @@ const ROUTER_INSTRUCTIONS = [
 ].join(" ");
 
 export async function routeMessage(message: string): Promise<{ ok: true; route: ChatRoute; usedTokens: number } | { ok: false; error: string }> {
+  if (!pickEnv(["OPENAI_API_KEY"])) return { ok: true, route: deterministicRoute(message), usedTokens: 0 };
+
   const result = await callOpenAi({
     instructions: ROUTER_INSTRUCTIONS,
     payload: { user_message: message },

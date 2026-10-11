@@ -32,15 +32,16 @@ test("quick action propose_buy returns a structured simulated card without any L
   assert.equal(response.disclaimer.includes("not financial advice"), true);
 });
 
-test("free-text chat says the model is unavailable instead of inventing an answer", async () => {
+test("free-text chat falls back to deterministic routing when the model is unavailable", async () => {
   const previous = process.env.OPENAI_API_KEY;
   delete process.env.OPENAI_API_KEY;
   updateSettings({ agent_enabled: true }, "test");
   const response = await handleAgentChat("buy 50 USD of AAPL");
   assert.equal(response.llm?.available, false);
-  assert.equal(response.card.type, "general");
-  // It must not pretend a buy was drafted.
-  assert.equal(response.card.checks.some((check) => check.status === "pass"), false);
+  assert.equal(response.llm?.routedTo, "propose_buy");
+  assert.equal(response.card.type, "simulated_buy");
+  assert.equal(response.card.simulated, true);
+  assert.equal(response.card.ticker, "AAPL");
   if (previous !== undefined) process.env.OPENAI_API_KEY = previous;
 });
 

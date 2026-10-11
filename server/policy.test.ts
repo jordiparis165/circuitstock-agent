@@ -61,24 +61,6 @@ test("blocks while cooldown is active", () => {
   assert.equal(violations.some((item) => item.includes("cooldown active")), true);
 });
 
-// TEMPORARY - covers the build/test-only lifetime budget cap (AutoPolicy.testLifetimeCapUsd).
-// Delete this test along with the field and its evaluate() check before final delivery.
-test("blocks once the temporary test lifetime budget cap is reached, across days", () => {
-  const policy: AutoPolicy = { ...basePolicy, testLifetimeCapUsd: 40 };
-  const violations = evaluate(
-    { ...baseCandidate, amountUsd: 5 },
-    policy,
-    state({ spentByDay: { "2026-09-20": 20, "2026-09-21": 16 } }),
-    new Date("2026-09-22T12:00:00Z")
-  );
-  assert.equal(violations.some((item) => item.includes("TEST budget cap reached")), true);
-});
-
-test("ignores the lifetime cap entirely when unset (post-delivery default)", () => {
-  const violations = evaluate({ ...baseCandidate, amountUsd: 5 }, basePolicy, state({ spentByDay: { "2026-09-21": 1000 } }));
-  assert.equal(violations.some((item) => item.includes("TEST budget cap")), false);
-});
-
 test("blocks a route whose measured round-trip cost exceeds the policy max", () => {
   const violations = evaluate({ ...baseCandidate, roundTripCostPct: 11.227 }, basePolicy, state());
   assert.equal(violations.some((item) => item.includes("measured round-trip cost 11.227% > max 1%")), true);

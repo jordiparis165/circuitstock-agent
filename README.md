@@ -81,9 +81,10 @@ thresholds are computed by `server/agent/chatTools.ts` and `server/agent/guardra
 only routes the request and, optionally, rewords the deterministic answer. If it returns a tool
 name that does not exist, the call is rejected against an allowlist.
 
-**Quick actions** call the same tools directly with no model at all. That is the fallback path:
-if the LLM key is missing, invalid, or the daily budget is spent, the chat says so plainly and the
-quick actions keep working. The app never invents an answer to cover for an unavailable model.
+**Quick actions** call the same tools directly with no model at all. If the LLM key is missing,
+common chat prompts use a narrow deterministic router; if the key is invalid or the daily budget is
+spent, the chat says so plainly and quick actions keep working. The app never lets a model invent a
+price, premium or decision.
 
 Each answer reports its own provenance in the footer — `Computed by code - no model involved`, or
 `gpt-5: routed to get_premium, wording only - figures computed by code`.
@@ -181,7 +182,7 @@ npm run dev              # API on :8787, frontend on :5173
 | `BINANCE_WEB3_API_KEY` / `_SECRET` | yes | No on-chain prices at all |
 | `ALPACA_KEY` / `ALPACA_SECRET` | for the real signal | No independent reference; premium cannot be computed, and market state fails closed |
 | `FINNHUB_KEY` | fallback | Alpaca has no backup |
-| `OPENAI_API_KEY` | for free-text chat | Chat reports itself unavailable; quick actions still work |
+| `OPENAI_API_KEY` | for LLM routing/wording | Common prompts use deterministic fallback; quick actions still work |
 | `LLM_RATE_LIMIT_PER_MIN`, `LLM_DAILY_TOKEN_BUDGET` | no | Defaults: 10/min, 120k tokens/day |
 
 **The independent reference needs two things, not one.** Keys alone are not enough:
